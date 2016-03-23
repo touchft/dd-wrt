@@ -38,26 +38,11 @@
 #define SIOCGMIIREG	0x8948	/* Read MII PHY register.  */
 #define SIOCSMIIREG	0x8949	/* Write MII PHY register.  */
 
-static void getMac(char *newmac)
-{
-	int brand = getRouterBrand();
-	switch (brand) {
-	case ROUTER_ASUS_AC87U:
-		strcpy(newmac, nvram_safe_get("et1macaddr"));
-		break;
-	case ROUTER_NETGEAR_R8000:
-	case ROUTER_TRENDNET_TEW828:
-		strcpy(newmac, nvram_safe_get("et2macaddr"));
-		break;
-	default:
-		strcpy(newmac, nvram_safe_get("et0macaddr"));
-		break;
-	}
-}
-
 void getLANMac(char *newmac)
 {
-	getMac(newmac);
+
+	getSystemMac(newmac);
+
 #ifndef HAVE_BUFFALO
 
 	if (nvram_match("port_swap", "1")) {
@@ -115,7 +100,7 @@ void getWirelessMac(char *newmac, int instance)
 			}
 
 		} else {
-			getMac(newmac);
+			getSystemMac(newmac);
 			MAC_ADD(newmac);	// et0macaddr +2
 			MAC_ADD(newmac);
 			if (instance > 0)
@@ -127,7 +112,8 @@ void getWirelessMac(char *newmac, int instance)
 
 	}
 #endif
-#ifdef HAVE_MVEBU
+#if defined(HAVE_MVEBU) || defined(HAVE_IPQ806X)
+/* NOTE: this is a workaround for EA8500 Device and might generate wrong macs for other IPQ devices. custom handling might be required here */
 	if (instance < 0)
 		instance = 0;
 
@@ -164,7 +150,7 @@ void getWANMac(char *newmac)
 		return;
 	}
 #endif
-	getMac(newmac);
+	getSystemMac(newmac);
 
 #if !defined(HAVE_BUFFALO) && !defined(HAVE_WZRG300NH) && !defined(HAVE_WHRHPGN)
 	if (getRouterBrand() != ROUTER_ASUS_AC66U) {

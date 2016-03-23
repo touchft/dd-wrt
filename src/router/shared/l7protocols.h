@@ -4,9 +4,8 @@
     /*
      * 2009-05-28 
      */
-     
-typedef struct _l7filters 
-{
+
+typedef struct _l7filters {
 
 	char *name;
 	int protocol;		// 1=p2p, 0=l7, 2=opendpi
@@ -175,6 +174,7 @@ l7filters filters_list[] = {
 	{"hamachi1", L7_ONLY},
 	{"hddtemp", L7_ONLY},
 #ifdef HAVE_OPENDPI
+	{"hep", NDPI_ONLY},
 	{"hl2", NDPI_ONLY},
 #endif
 	{"hotline", L7_ONLY},
@@ -276,6 +276,7 @@ l7filters filters_list[] = {
 	{"mp3", L7_ONLY},
 #ifdef HAVE_OPENDPI
 	{"mpeg", NDPI_ONLY},
+	{"ms_lync", NDPI_ONLY},
 	{"msn", NDPI_ONLY},
 #endif
 	{"msn-filetransfer", L7_ONLY},
@@ -490,6 +491,7 @@ l7filters filters_list[] = {
 	{"tvuplayer", NDPI_ONLY},
 	{"twitch", NDPI_ONLY},
 	{"twitter", NDPI_ONLY},
+	{"ubntac2", NDPI_ONLY},
 	{"ubuntuone", NDPI_ONLY},
 	{"unencryped_jabber", NDPI_ONLY},
 #endif

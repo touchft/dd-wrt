@@ -706,13 +706,35 @@
 
 #define ROUTER_DLINK_DIR868C 0xea1b
 
-#define ROUTER_ASUS_AC3200 0xdc1b
+#define ROUTER_ASUS_AC3200 0xeb1b
 
-#define ROUTER_LINKSYS_EA6400 0xdd1b
+#define ROUTER_LINKSYS_EA6400 0xec1b
 
-#define ROUTER_WRT_1200AC 0xde11
+#define ROUTER_WRT_1200AC 0xed11
 
-#define ROUTER_WRT_1900ACV2 0xdf11
+#define ROUTER_WRT_1900ACV2 0xee11
+
+#define ROUTER_DLINK_DIR885 0xef111
+
+#define ROUTER_DLINK_DIR895 0xf0111
+
+#define ROUTER_ASUS_AC88U 0xf11b
+
+#define ROUTER_ASUS_AC5300 0xf21b
+
+#define ROUTER_WRT_1900ACS 0xf311
+
+#define ROUTER_LINKSYS_EA6350 0xf41b
+
+#define ROUTER_NETGEAR_R7500 0xf50e
+
+#define ROUTER_LINKSYS_EA8500 0xf60e
+
+#define ROUTER_TRENDNET_TEW827 0xf701
+
+#define ROUTER_NETGEAR_R8500 0xf81a
+
+#define ROUTER_UBNT_UAPAC 0xf912
 
 #define NVROUTER "DD_BOARD"
 
@@ -729,8 +751,8 @@ typedef struct {
 extern void update_timezone(void);
 extern TIMEZONE_TO_TZSTRING allTimezones[];
 
-extern char *getBridge(char *ifname);
-extern char *getRealBridge(char *ifname);
+extern char *getBridge(char *ifname, char *word);
+extern char *getRealBridge(char *ifname, char *word);
 extern char *getWDSSTA(void);
 extern char *getSTA(void);
 extern char *getWET(void);
@@ -787,7 +809,8 @@ extern void set_host_domain_name(void);
 
 extern void encode(char *buf, int len);
 extern void decode(char *buf, int len);
-extern char *zencrypt(char *passwd);
+#define MD5_OUT_BUFSIZE 36
+extern char *zencrypt(char *passwd, char *passout);
 
 extern void getLANMac(char *newmac);
 extern void getWirelessMac(char *newmac, int instance);
@@ -969,7 +992,7 @@ void lcdmessaged(char *dual, char *message);
 #define lcdmessaged(a,b)
 #endif
 
-extern char *getBridgeMTU(char *);
+extern char *getBridgeMTU(const char *, char *word);
 extern char *getMTU(char *);
 extern int getBridgeSTP(char *br);
 extern char *get_NFServiceMark(char *service, uint32 mark);
@@ -982,7 +1005,7 @@ extern char *get_tcfmark(uint32 mark);
 #endif
 
 extern char *get_wshaper_dev(void);
-extern char *get_mtu_val(void);
+extern char *get_mtu_val(char *buf);
 extern void add_client_dev_srvfilter(char *name, char *type, char *data, char *level, int base, char *chain);
 extern void add_client_mac_srvfilter(char *name, char *type, char *data, char *level, int base, char *client);
 extern void add_client_ip_srvfilter(char *name, char *type, char *data, char *level, int base, char *client);
@@ -1003,6 +1026,7 @@ int sv_valid_ipaddr(char *value);
 int sv_valid_range(char *value, int low, int high);
 int sv_valid_statics(char *value);
 void get_network(char *ipaddr, char *netmask);
+int isbridge(char *name);
 int get_net(char *netmask);
 void get_broadcast(char *ipaddr, char *netmask);
 int route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask);
@@ -1013,10 +1037,16 @@ extern int pidof(const char *name);
 extern int killall(const char *name, int sig);
 extern int getifcount(const char *ifprefix);
 extern int getIfList(char *buffer, const char *ifprefix);
+extern int getIfListB(char *buffer, const char *ifprefix, int bridgesonly);
 extern void getIfLists(char *eths, int size);
 extern int ifexists(const char *ifname);
 extern void getinterfacelist(const char *ifprefix, char *buffer);
 extern int count_processes(char *pidName);
+#ifdef HAVE_ATH5K
+extern int is_ath5k(const char *prefix);
+#else
+#define is_ath5k(prefix) 0
+#endif
 #ifdef HAVE_ATH9K
 extern int is_ath9k(const char *prefix);
 extern int getath9kdevicecount(void);
@@ -1027,10 +1057,7 @@ extern int is_ath10k(const char *prefix);
 #ifdef HAVE_MVEBU
 extern int is_mvebu(const char *prefix);
 #else
-static int is_mvebu(const char *prefix)
-{
-	return 0;
-}
+#define is_mvebu(prefix) 0
 #endif
 extern char *get3GDeviceVendor(void);
 
@@ -1081,6 +1108,7 @@ int nvram_restore(char *filename);
 
 void nvram_clear(void);
 int nvram_critical(char *name);
+void getSystemMac(char *mac);
 
 int do80211priv(const char *ifname, int op, void *data, size_t len);
 int getsocket(void);
@@ -1145,5 +1173,7 @@ struct arph {
 int gratarp_main(char *iface);
 
 int writeproc(char *path, char *value);
+
+int set_smp_affinity(int irq, int cpu);
 
 int writevaproc(char *value, char *fmt, ...);

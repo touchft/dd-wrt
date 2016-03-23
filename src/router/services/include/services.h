@@ -38,6 +38,11 @@ extern void start_upnp(void);
 extern void stop_upnp(void);
 #endif
 
+#ifdef HAVE_IPVS
+extern void start_ipvs(void);
+extern void stop_ipvs(void);
+#endif
+
 #ifdef HAVE_QTN
 extern void start_qtn(void);
 extern void stop_qtn(void);
@@ -198,7 +203,6 @@ void start_wanup(void);
 
 char *getMTU(char *ifname);
 char *getTXQ(char *ifname);
-char *getBridgeMTU(char *ifname);
 
 int br_add_bridge(const char *brname);
 int br_del_bridge(const char *brname);

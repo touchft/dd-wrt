@@ -37,15 +37,17 @@ extern int get_wl_instances(void);
 extern char *get_wl_instance_name(int instance);
 extern int get_maxbssid(char *ifname);
 
-float wifi_getrate(char *ifname);
+int wifi_getrate(char *ifname);
 int wifi_gettxpower(char *ifname);
 int wifi_gettxpoweroffset(char *ifname);
 int bcm_gettxpower(char *wlname);
 
-extern double HTTxRate20_800(unsigned int index);
-extern double HTTxRate20_400(unsigned int index);
-extern double HTTxRate40_800(unsigned int index);
-extern double HTTxRate40_400(unsigned int index);
+extern int HTTxRate20_800(unsigned int index);
+extern int HTTxRate20_400(unsigned int index);
+extern int HTTxRate40_800(unsigned int index);
+extern int HTTxRate40_400(unsigned int index);
+extern int HTTxRate80_800(unsigned int index);
+extern int HTTxRate80_400(unsigned int index);
 
 /*
  * Pass a wlioctl request to the specified interface.
@@ -123,14 +125,14 @@ extern int has_beamforming(char *prefix);
 
 struct site_survey_list {
 	char SSID[33];
-	unsigned char BSSID[18];
+	char BSSID[18];
 	uint16 channel;		/* Channel no. */
 	uint16 frequency;	/* Frequency i.e. for superchannel */
 	int16 RSSI;		/* receive signal strength (in dBm) */
 	int16 phy_noise;	/* noise (in dBm) */
 	uint16 beacon_period;	/* units are Kusec */
 	uint16 capability;	/* Capability information */
-	unsigned char ENCINFO[128];	/* encryption info */
+	char ENCINFO[128];	/* encryption info */
 	uint rate_count;	/* # rates in this set */
 	uint8 dtim_period;	/* DTIM period */
 };
@@ -149,15 +151,14 @@ extern struct wifi_channels *list_channels_11n(char *devnr);
 extern struct wifi_channels *list_channels_ath9k(char *devnr, char *country, int max_bandwidth_khz, unsigned char band);
 extern int getdevicecount(void);
 
-
 extern int mac80211_get_coverageclass(char *interface);
 extern struct mac80211_info *mac80211_assoclist(char *interface);
-extern char *mac80211_get_caps(char *interface,int shortgi);
+extern char *mac80211_get_caps(char *interface, int shortgi);
 extern int has_shortgi(char *interface);
 #ifdef HAVE_ATH10K
 extern char *mac80211_get_vhtcaps(char *interface, int shortgi);
 extern unsigned int get_ath10kreg(char *ifname, unsigned int reg);
-extern void set_ath10kreg(char *ifname, unsigned int reg,unsigned int value);
+extern void set_ath10kreg(char *ifname, unsigned int reg, unsigned int value);
 extern void set_ath10kdistance(char *ifname, unsigned int distance);
 extern unsigned int get_ath10kack(char *ifname);
 extern unsigned int get_ath10kdistance(char *ifname);
@@ -258,9 +259,9 @@ int isAssociated(char *ifname);
 unsigned int getRegDomain(const char *country);
 unsigned int getCountry(const char *country);
 char *getCountryList(void);
-u_int ieee80211_mhz2ieee(u_int freq);
 
 #endif
+u_int ieee80211_mhz2ieee(u_int freq);
 #if defined(HAVE_RT2880) || defined(HAVE_RT61) || defined(HAVE_MADWIFI)
 int wifi_getchannel(char *ifname);
 struct wifi_interface *wifi_getfreq(char *ifname);

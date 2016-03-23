@@ -64,19 +64,20 @@ void start_dlna(void)
 	for (cs = dlna_shares; cs; cs = csnext) {
 		if (strlen(cs->mp)) {
 			if ((cs->types & (TYPE_VIDEO | TYPE_AUDIO | TYPE_IMAGES))) {
-				if (cs->types & TYPE_VIDEO)
-					fprintf(fp, "media_dir=V,%s%s%s\n", cs->mp, (cs->sd[0] != '/' && cs->sd[0] != 0) ? "/" : "", cs->sd);
-				if (cs->types & TYPE_AUDIO)
-					fprintf(fp, "media_dir=A,%s%s%s\n", cs->mp, (cs->sd[0] != '/' && cs->sd[0] != 0) ? "/" : "", cs->sd);
-				if (cs->types & TYPE_IMAGES)
-					fprintf(fp, "media_dir=P,%s%s%s\n", cs->mp, (cs->sd[0] != '/' && cs->sd[0] != 0) ? "/" : "", cs->sd);
+				fprintf(fp, "media_dir=%s%s%s,%s%s%s\n",	//
+					cs->types & TYPE_VIDEO ? "V" : "",	//
+					cs->types & TYPE_AUDIO ? "A" : "",	//
+					cs->types & TYPE_IMAGES ? "P" : "",	// 
+					cs->mp,	//
+					(cs->sd[0] != '/' && cs->sd[0] != 0) ? "/" : "",	//
+					cs->sd);
 			}
 
 		}
 		csnext = cs->next;
 		free(cs);
 	}
-	fprintf(fp, "friendly_name=%s:DLNA\n", nvram_safe_get("DD_BOARD"));	//enter any name you want here, but should be unique within a network
+	fprintf(fp, "friendly_name=%s\n", nvram_safe_get("router_name"));	//enter any name you want here, but should be unique within a network
 	if (nvram_match("dlna_thumb", "1")) {
 		fprintf(fp, "album_art_names=Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg\n");
 	}

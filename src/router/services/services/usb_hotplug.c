@@ -13,8 +13,10 @@
 #include <errno.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <typedefs.h>
 #include <shutils.h>
+#include <utils.h>
 #include <bcmnvram.h>
 
 static bool usb_ufd_connected(char *str);
@@ -103,8 +105,16 @@ void start_hotplug_usb(void)
 }
 
 /* Optimize performance */
-#define READ_AHEAD_KB_BUF	1024
+#define READ_AHEAD_KB_BUF	"1024"
 #define READ_AHEAD_CONF	"/sys/block/%s/queue/read_ahead_kb"
+static void writestr(char *path, char *a)
+{
+	int fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return;
+	write(fd, a, strlen(a));
+	close(fd);
+}
 
 static void optimize_block_device(char *devname)
 {
@@ -115,7 +125,7 @@ static void optimize_block_device(char *devname)
 	memset(blkdev, 0, sizeof(blkdev));
 	strncpy(blkdev, devname, 3);
 	sprintf(read_ahead_conf, READ_AHEAD_CONF, blkdev);
-	sysprintf("echo %d > %s", READ_AHEAD_KB_BUF, read_ahead_conf);
+	writestr(read_ahead_conf, READ_AHEAD_KB_BUF);
 }
 
 void start_hotplug_block(void)
@@ -236,7 +246,7 @@ static int usb_process_path(char *path, char *fs, char *target)
 		insmod("crc16 mbcache jbd2 ext4");
 	}
 	if (!strcmp(fs, "btrfs")) {
-		insmod("libcrc32c lzo_compress lzo_decompress raid6_pq xor btrfs");
+		insmod("libcrc32c crc32c_generic lzo_compress lzo_decompress raid6_pq xor-neon xor btrfs");
 	}
 #endif
 	if (!strcmp(fs, "vfat")) {
@@ -255,7 +265,7 @@ static int usb_process_path(char *path, char *fs, char *target)
 		insmod("isofs");
 	}
 	if (target)
-		sysprintf("mkdir -p /tmp/mnt/%s", target);
+		sysprintf("mkdir -p \"/tmp/mnt/%s\"", target);
 	else
 		mkdir("/tmp/mnt", 0700);
 #ifdef HAVE_NTFS3G
@@ -278,6 +288,8 @@ static int usb_process_path(char *path, char *fs, char *target)
 	}
 #ifdef HAVE_80211AC
 	writeproc("/proc/sys/vm/min_free_kbytes", "16384");
+#elif HAVE_IPQ806X
+	writeproc("/proc/sys/vm/min_free_kbytes", "65536");
 #else
 	writeproc("/proc/sys/vm/min_free_kbytes", "4096");
 #endif

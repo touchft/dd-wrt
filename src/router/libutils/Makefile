@@ -13,6 +13,7 @@ CONFIG_WP543=
 CONFIG_WDR4300=
 CONFIG_WDR3500=
 CONFIG_WDR2543=
+CONFIG_JWAP606=
 CONFIG_WRT160NL=
 CONFIG_E2100L=
 CONFIG_DIR825C1=
@@ -25,6 +26,7 @@ CONFIG_DIR825=
 CONFIG_WNDR3700=
 CONFIG_WR1043V2=
 CONFIG_WR841V9=
+CONFIG_WR841V10=
 CONFIG_DAP2230=
 CONFIG_DAP2662=
 CONFIG_DAP2330=
@@ -204,7 +206,7 @@ endif
 ifeq ($(CONFIG_QTN),y)
   CFLAGS += -DHAVE_QTN -DRPCOVERRIDE
   OBJS += qtnapi.o 
-  CFLAGS +=  -I$(TOP)/qtn/libqcsapi_client -I$(TOP)/qtn/libqcsapi_client/librpc
+  CFLAGS +=  -I$(TOP)/qtn/libqcsapi_client -I$(TOP)/qtn/libqcsapi_client/librpc 
   QTNFLAGS =  -L$(TOP)/qtn/libqcsapi_client -lqcsapi_client   -L$(TOP)/qtn/libqcsapi_client/librpc -lrpc
 endif
 ifeq ($(CONFIG_SAMBA3),y)
@@ -289,6 +291,12 @@ ifeq ($(CONFIG_WRT1900AC),y)
 endif
 ifeq ($(CONFIG_MVEBU),y)
   CFLAGS += -DHAVE_MVEBU
+endif
+ifeq ($(CONFIG_IPQ806X),y)
+  CFLAGS += -DHAVE_IPQ806X
+endif
+ifeq ($(CONFIG_R7500),y)
+  CFLAGS += -DHAVE_R7500
 endif
 ifeq ($(CONFIG_MT7620),y)
   CFLAGS += -DHAVE_MT7620
@@ -650,6 +658,10 @@ ifeq ($(CONFIG_ONNET),y)
 endif
 ifeq ($(CONFIG_IDEXX),y)
   CFLAGS += -DHAVE_IDEXX
+  ATH9KCFLAGS += -DHAVE_IDEXX
+  ifeq ($(CONFIG_IDEXX_WORLD),y)
+    ATH9KCFLAGS += -DHAVE_IDEXX_WORLD
+  endif
 endif
 ifeq ($(CONFIG_SUB3),y)
 CFLAGS += -DHAVE_SUB3
@@ -825,6 +837,9 @@ ifeq ($(CONFIG_ALFAAP94),y)
 endif
 ifeq ($(CONFIG_JWAP003),y)
   CFLAGS += -DHAVE_JWAP003
+endif
+ifeq ($(CONFIG_JWAP606),y)
+  CFLAGS += -DHAVE_JWAP606
 endif
 ifeq ($(CONFIG_AP83),y)
   CFLAGS += -DHAVE_AP83
@@ -1009,6 +1024,9 @@ endif
 ifeq ($(CONFIG_WR1043V2),y)
 CFLAGS += -DHAVE_WR1043V2
 endif
+ifeq ($(CONFIG_WR1043V3),y)
+CFLAGS += -DHAVE_WR1043V3
+endif
 ifeq ($(CONFIG_MMS344),y)
 CFLAGS += -DHAVE_MMS344
 endif
@@ -1063,8 +1081,17 @@ endif
 ifeq ($(CONFIG_WR841V8),y)
 CFLAGS += -DHAVE_WR841V8
 endif
+ifeq ($(CONFIG_WA901V3),y)
+CFLAGS += -DHAVE_WA901V3
+endif
 ifeq ($(CONFIG_WR841V9),y)
 CFLAGS += -DHAVE_WR841V9
+endif
+ifeq ($(CONFIG_WR841V10),y)
+CFLAGS += -DHAVE_WR841V10
+endif
+ifeq ($(CONFIG_WR841V11),y)
+CFLAGS += -DHAVE_WR841V11
 endif
 ifeq ($(CONFIG_WR842V2),y)
 CFLAGS += -DHAVE_WR842V2
@@ -1096,6 +1123,9 @@ endif
 ifeq ($(CONFIG_WR710),y)
 CFLAGS += -DHAVE_WR710
 endif
+ifeq ($(CONFIG_WR71021),y)
+CFLAGS += -DHAVE_WR71021
+endif
 ifeq ($(CONFIG_WR710V1),y)
 CFLAGS += -DHAVE_WR710V1
 endif
@@ -1110,6 +1140,9 @@ CFLAGS += -DHAVE_WR740V4
 endif
 ifeq ($(CONFIG_WR743),y)
 CFLAGS += -DHAVE_WR743
+endif
+ifeq ($(CONFIG_WR743V2),y)
+CFLAGS += -DHAVE_WR743V2
 endif
 ifeq ($(CONFIG_WR841v3),y)
 CFLAGS += -DHAVE_WR841v3

@@ -64,6 +64,22 @@ int cfenvram = 0;
 static int cfe_env;
 extern char *cfe_env_get(char *nv_buf, const char *name);
 
+void *MMALLOC(size_t size)
+{
+	void *ptr = kmalloc(size, GFP_ATOMIC);
+	if (!ptr)
+		ptr = vmalloc(size);
+	return ptr;
+}
+
+void MMFREE(void *ptr)
+{
+	if (is_vmalloc_addr(ptr))
+		vfree(ptr);
+	else
+		kfree(ptr);
+}
+
 #ifdef MODULE
 
 #define early_nvram_get(name) nvram_get(name)
@@ -128,6 +144,7 @@ static int early_nvram_init(void)
 	struct nvram_header *header_cfe = NULL;
 	struct nvram_header *header_cfe2 = NULL;
 	struct nvram_header *header_cfe3 = NULL;
+	struct nvram_header *header_cfe4 = NULL;
 	chipcregs_t *cc;
 	int i;
 	uint32 base, off, lim;
@@ -203,12 +220,12 @@ static int early_nvram_init(void)
 				int c;
 				char *sstr = "model_sku=EA2700";
 				int slen = strlen(sstr);
-				char *checkp = (char*)header;
-				for (c=0;c<0x8000-slen;c++) {
-				    if (!memcmp(&checkp[c],sstr,slen)) {
-					    printk(KERN_INFO "detected Linksys EA2700 32KB nvram\n");
-					    NVRAMSIZEREAL = 0x8000;
-					    break;
+				char *checkp = (char *)header;
+				for (c = 0; c < 0x8000 - slen; c++) {
+					if (!memcmp(&checkp[c], sstr, slen)) {
+						printk(KERN_INFO "detected Linksys EA2700 32KB nvram\n");
+						NVRAMSIZEREAL = 0x8000;
+						break;
 					}
 				}
 				goto found;
@@ -241,8 +258,9 @@ static int early_nvram_init(void)
 					printk(KERN_NOTICE "found nvram at %X\n", off - NVRAM_SPACE);
 					header_cfe = (struct nvram_header *)KSEG1ADDR(base + off + 0x20000 - (NVRAM_SPACE_32K));
 					header_cfe2 = (struct nvram_header *)KSEG1ADDR(base + off + 0x20000 - (NVRAM_SPACE_60K));
+					header_cfe4 = (struct nvram_header *)KSEG1ADDR(base + off + 0x10000 - (NVRAM_SPACE_32K));
 					header_cfe3 = (struct nvram_header *)KSEG1ADDR(base + off + 0x50000 - (NVRAM_SPACE_32K));
-					if (header_cfe->magic != NVRAM_MAGIC && header_cfe2->magic != NVRAM_MAGIC && header_cfe3->magic != NVRAM_MAGIC) {
+					if (header_cfe->magic != NVRAM_MAGIC && header_cfe2->magic != NVRAM_MAGIC && header_cfe3->magic != NVRAM_MAGIC && header_cfe4->magic != NVRAM_MAGIC) {
 						printk(KERN_INFO "something wrong here. do not remap\n");
 						if ((off - NVRAM_SPACE) < 0x1f0000) {
 							header_cfe = (struct nvram_header *)KSEG1ADDR(KSEG1ADDR(base + off + 0x20000 - NVRAM_SPACE));
@@ -266,7 +284,11 @@ static int early_nvram_init(void)
 							printk(KERN_NOTICE "map 32K netgear cfe nvram at %X\n", off + 0x50000 - (NVRAM_SPACE_32K));
 							NVRAMSIZE = NVRAM_SPACE_32K;
 							header_cfe = header_cfe3;
-						} 
+						} else if (header_cfe4->magic == NVRAM_MAGIC) {
+							printk(KERN_NOTICE "map 32K netgear cfe nvram at %X\n", off + 0x10000 - (NVRAM_SPACE_32K));
+							NVRAMSIZE = NVRAM_SPACE_32K;
+							header_cfe = header_cfe4;
+						}
 						goto found;
 					}
 				}
@@ -294,7 +316,7 @@ static int early_nvram_init(void)
 			if (header->magic == NVRAM_MAGIC)
 				if (nvram_calc_crc(header) == (uint8) header->crc_ver_init) {
 					printk(KERN_NOTICE "found 256K nvram at %X\n", off - NVRAM_SPACE_60K);
-//					cfenvram = 1;
+//                                      cfenvram = 1;
 					NVRAMSIZE = NVRAM_SPACE_256;
 					NVRAMSIZEREAL = NVRAM_SPACE_256;
 					header_cfe = NULL;
@@ -486,7 +508,7 @@ struct nvram_tuple *_nvram_realloc(struct nvram_tuple *t, const char *name, cons
 		return NULL;
 
 	if (!t) {
-		if (!(t = vmalloc(sizeof(struct nvram_tuple) + strlen(name) + 1)))
+		if (!(t = MMALLOC(sizeof(struct nvram_tuple) + strlen(name) + 1)))
 			return NULL;
 
 		/* Copy name */
@@ -511,7 +533,7 @@ void _nvram_free(struct nvram_tuple *t)
 	if (!t)
 		nvram_offset = 0;
 	else
-		vfree(t);
+		MMFREE(t);
 }
 
 int nvram_init(void *sih)
@@ -528,10 +550,10 @@ int nvram_set(const char *name, const char *value)
 	spin_lock_irqsave(&nvram_lock, flags);
 	if ((ret = _nvram_set(name, value))) {
 		/* Consolidate space and try again */
-		if ((header = vmalloc(NVRAMSIZEREAL))) {
+		if ((header = MMALLOC(NVRAMSIZEREAL))) {
 			if (_nvram_commit(header) == 0)
 				ret = _nvram_set(name, value);
-			vfree(header);
+			MMFREE(header);
 		}
 	}
 	spin_unlock_irqrestore(&nvram_lock, flags);
@@ -588,7 +610,7 @@ int nvram_nflash_commit(void)
 	unsigned long flags;
 	u_int32_t offset;
 
-	if (!(buf = vmalloc(NVRAMSIZEREAL))) {
+	if (!(buf = MMALLOC(NVRAMSIZEREAL))) {
 		printk("nvram_commit: out of memory\n");
 		return -ENOMEM;
 	}
@@ -619,7 +641,7 @@ int nvram_nflash_commit(void)
 
 done:
 	mutex_unlock(&nvram_sem);
-	vfree(buf);
+	MMFREE(buf);
 	return ret;
 }
 #endif				/* NFLASH_SUPPORT */
@@ -653,7 +675,7 @@ int nvram_commit(void)
 #endif
 	/* Backup sector blocks to be erased */
 	erasesize = ROUNDUP(NVRAMSIZEREAL, nvram_mtd->erasesize);
-	if (!(buf = vmalloc(erasesize))) {
+	if (!(buf = MMALLOC(erasesize))) {
 		printk("nvram_commit: out of memory\n");
 		return -ENOMEM;
 	}
@@ -757,7 +779,7 @@ int nvram_commit(void)
 
 done:
 	mutex_unlock(&nvram_sem);
-	vfree(buf);
+	MMFREE(buf);
 	return ret;
 }
 
@@ -792,7 +814,7 @@ static ssize_t dev_nvram_read(struct file *file, char *buf, size_t count, loff_t
 	unsigned long off;
 
 	if (count > sizeof(tmp)) {
-		if (!(name = vmalloc(count)))
+		if (!(name = MMALLOC(count)))
 			return -ENOMEM;
 	}
 
@@ -828,11 +850,12 @@ static ssize_t dev_nvram_read(struct file *file, char *buf, size_t count, loff_t
 		ret = sizeof(unsigned long);
 	}
 
-//	flush_cache_all();
+//      flush_cache_all();
 
 done:
-	if (name != tmp)
-		vfree(name);
+	if (name != tmp) {
+		MMFREE(name);
+	}
 
 	return ret;
 }
@@ -842,8 +865,8 @@ static ssize_t dev_nvram_write(struct file *file, const char *buf, size_t count,
 	char tmp[100], *name = tmp, *value;
 	ssize_t ret;
 
-	if (count >= sizeof(tmp)) {
-		if (!(name = vmalloc(count + 1)))
+	if (count >= sizeof(tmp)) {		
+		if (!(name = MMALLOC(count + 1)))
 			return -ENOMEM;
 	}
 
@@ -860,8 +883,9 @@ static ssize_t dev_nvram_write(struct file *file, const char *buf, size_t count,
 		ret = nvram_unset(name) ? : count;
 
 done:
-	if (name != tmp)
-		vfree(name);
+	if (name != tmp) {
+		MMFREE(name);
+	}
 
 	return ret;
 }
@@ -886,17 +910,14 @@ dev_nvram_ioctl(
 static int dev_nvram_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	unsigned long offset = virt_to_phys(nvram_buf);
-	if (remap_pfn_range(vma,vma->vm_start, offset>>PAGE_SHIFT, vma->vm_end-vma->vm_start,
-			     vma->vm_page_prot))
-		{
+	if (remap_pfn_range(vma, vma->vm_start, offset >> PAGE_SHIFT, vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
 		return -EAGAIN;
-		}
+	}
 
-
-//	unsigned long offset = __pa(nvram_buf) >> PAGE_SHIFT;
+//      unsigned long offset = __pa(nvram_buf) >> PAGE_SHIFT;
 //
-//	if (remap_pfn_range(vma, vma->vm_start, offset, vma->vm_end - vma->vm_start, vma->vm_page_prot))
-//		return -EAGAIN;
+//      if (remap_pfn_range(vma, vma->vm_start, offset, vma->vm_end - vma->vm_start, vma->vm_page_prot))
+//              return -EAGAIN;
 
 	return 0;
 }
@@ -1001,12 +1022,12 @@ static int dev_nvram_init(void)
 	if (nvram_mtd_cfe != NULL && cfenvram) {
 		printk(KERN_INFO "check if nvram copy is required CFE Size is %d\n", NVRAMSIZE);
 		int len;
-		char *buf = vmalloc(NVRAMSIZEREAL);
+		char *buf = MMALLOC(NVRAMSIZEREAL);
 		if (buf == NULL) {
 			printk(KERN_ERR "mem allocation error");
 			goto done_nofree;
 		}
-		mtd_read(nvram_mtd, nvram_mtd->erasesize - NVRAMSIZEREAL,NVRAMSIZEREAL, &len, buf);
+		mtd_read(nvram_mtd, nvram_mtd->erasesize - NVRAMSIZEREAL, NVRAMSIZEREAL, &len, buf);
 		header = (struct nvram_header *)buf;
 		len = 0;
 		printk(KERN_INFO "nvram copy magic is %X\n", header->magic);
@@ -1048,7 +1069,7 @@ static int dev_nvram_init(void)
 //      bcm947xx_machine_restart(NULL);
 
 		      done:;
-			vfree(buf);
+			MMFREE(buf);
 		      done_nofree:;
 		}
 	}

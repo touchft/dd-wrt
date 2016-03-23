@@ -35,7 +35,7 @@
  */
 /**
  * \file
- * Exits with code 1 on a failure. 0 if all unit tests are successfull.
+ * Exits with code 1 on a failure. 0 if all unit tests are successful.
  */
 
 #include "config.h"
@@ -47,7 +47,7 @@
 #include "testcode/fake_event.h"
 #include "daemon/remote.h"
 #include "util/config_file.h"
-#include "ldns/keyraw.h"
+#include "sldns/keyraw.h"
 #include <ctype.h>
 
 /** signal that this is a testbound compile */
@@ -142,7 +142,7 @@ spool_auto_file(FILE* in, int* lineno, FILE* cfg, char* id)
 	/* find filename for new file */
 	while(isspace((unsigned char)*id))
 		id++;
-	if(strlen(id)==0) 
+	if(*id == '\0') 
 		fatal_exit("AUTROTRUST_FILE must have id, line %d", *lineno);
 	id[strlen(id)-1]=0; /* remove newline */
 	fake_temp_file("_auto_", id, line, sizeof(line));
@@ -284,10 +284,9 @@ main(int argc, char* argv[])
 		case 's':
 			free(pass_argv[1]);
 			testbound_selftest();
-			printf("selftest successful\n");
 			exit(0);
 		case '2':
-#if (defined(HAVE_EVP_SHA256) || defined(HAVE_NSS)) && defined(USE_SHA2)
+#if (defined(HAVE_EVP_SHA256) || defined(HAVE_NSS) || defined(HAVE_NETTLE)) && defined(USE_SHA2)
 			printf("SHA256 supported\n");
 			exit(0);
 #else

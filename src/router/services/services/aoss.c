@@ -19,7 +19,7 @@
  *
  * $Id:
  */
-#ifdef HAVE_AOSS
+#if defined(HAVE_AOSS) || defined(HAVE_WPS)
 #include <stdlib.h>
 #include <bcmnvram.h>
 #include <shutils.h>
@@ -50,15 +50,22 @@ void start_aoss(void)
 #endif
 	if (nvram_match("aoss_enable", "0")) {
 		stop_aoss();
-#ifdef HAVE_WPS			// set to 1 or remove the #if to reenable WPS support
+#ifdef HAVE_WPS
 		unlink("/tmp/.wpsdone");
 		if (nvram_match("wps_enabled", "1")) {
 			if (!nvram_match("ath0_net_mode", "disabled")) {
 				eval("hostapd_cli", "-i", "ath0", "wps_pbc");
+#ifdef HAVE_IDEXX
+				eval("/usr/bin/check_wps");
+#endif
 			}
-#ifdef HAVE_WZRHPAG300NH
+#if defined(HAVE_WZRHPAG300NH)
 			if (!nvram_match("ath1_net_mode", "disabled")) {
+				led_control(LED_SES, LED_FLASH);
 				eval("hostapd_cli", "-i", "ath1", "wps_pbc");
+#ifdef HAVE_IDEXX
+				eval("/usr/bin/check_wps");
+#endif
 			}
 #endif
 		}
@@ -66,6 +73,7 @@ void start_aoss(void)
 
 		return;
 	}
+#ifdef HAVE_AOSS
 	if (pidof("aoss") > 0)
 		return;
 	led_control(LED_SES, LED_FLASH);	// when pressed, blink white
@@ -114,7 +122,7 @@ void start_aoss(void)
 		configure_single_ath9k(0);
 		hasaoss = 1;
 		char *next;
-		static char var[80];
+		char var[80];
 		char *vifs = nvram_safe_get("ath0_vifs");
 		int counter = 1;
 		foreach(var, vifs, next) {
@@ -140,7 +148,7 @@ void start_aoss(void)
 		configure_single_ath9k(1);
 		hasaoss = 1;
 		char *next;
-		static char var[80];
+		char var[80];
 		char *vifs = nvram_safe_get("ath1_vifs");
 		int counter = 1;
 		foreach(var, vifs, next) {
@@ -176,7 +184,7 @@ void start_aoss(void)
 	     || nvram_match("ath0_mode", "wdsap"))
 	    && !nvram_match("ath0_net_mode", "disabled")) {
 		hasaoss = 1;
-		eval("80211n_wlanconfig", "aossg create", "wlandev", "wifi0", "wlanmode", "ap");
+		eval("80211n_wlanconfig", "aossg","create", "wlandev", "wifi0", "wlanmode", "ap");
 		eval("iwconfig", "aossg", "essid", "ESSID-AOSS");
 		eval("iwpriv", "aossg", "authmode", "4");
 		eval("iwconfig", "aossg", "key", "[1]", "4D454C434F");
@@ -203,7 +211,7 @@ void start_aoss(void)
 			configure_single_ath9k(0);
 			hasaoss = 1;
 			char *next;
-			static char var[80];
+			char var[80];
 			char *vifs = nvram_safe_get("ath0_vifs");
 			int counter = 1;
 			foreach(var, vifs, next) {
@@ -242,15 +250,18 @@ void start_aoss(void)
 	} else
 		dd_syslog(LOG_INFO, "aoss : aoss daemon not started (operation mode is not AP or WDSAP)\n");
 
+#endif
 	cprintf("done\n");
 	return;
 }
 
 void stop_aoss(void)
 {
+#ifdef HAVE_AOSS
 	stop_process("aoss", "buffalo aoss daemon");
 	eval("iptables", "-D", "OUTPUT", "-o", "aoss", "-j", "ACCEPT");
 	eval("iptables", "-D", "INPUT", "-i", "aoss", "-j", "ACCEPT");
+#endif
 	return;
 }
 

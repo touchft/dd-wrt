@@ -120,6 +120,7 @@ strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
 all: build_date clean_target $(obj-y) $(LINUXDIR)/.config kernel
 
+include kernel-features.mk
 
 kernel:
 	# Also build kernel
@@ -140,11 +141,7 @@ else
 endif
 endif
 endif
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP" is not set >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 ifeq ($(CONFIG_V25),y)
 	echo CONFIG_V25=y >> $(LINUXDIR)/.config
 else
@@ -161,9 +158,6 @@ else
 	echo "# CONFIG_NVRAM_60K" is not set >> $(LINUXDIR)/.config
 	echo "# CONFIG_NVRAM_64K" is not set >> $(LINUXDIR)/.config
 endif
-endif
-ifeq ($(CONFIG_IPETH),y)
-	sed -i 's/\# CONFIG_USB_IPHETH is not set/CONFIG_USB_IPHETH=m/g' $(LINUXDIR)/.config
 endif
 #ifeq ($(CONFIG_REGISTER),y)
 #	cp $(LINUXDIR)/.config_register $(LINUXDIR)/.config
@@ -203,7 +197,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)

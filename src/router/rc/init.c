@@ -468,6 +468,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "starting Architecture code for " ARCHITECTURE "\n");
 	start_service("devinit");	//init /dev /proc etc.
 	start_service("sysinit");
+	start_service("post_sysinit");
 #ifndef HAVE_MICRO
 	if (console_init())
 		noconsole = 1;
@@ -519,40 +520,13 @@ int main(int argc, char **argv)
 	boardflags = strtoul(nvram_safe_get("boardflags"), NULL, 0);
 	nvram_set("wanup", "0");
 
-#ifndef HAVE_RB500
-	switch (brand) {
-	case ROUTER_WRT600N:
-	case ROUTER_WRT610N:
-	case ROUTER_ASUS_WL500GD:
-	case ROUTER_ASUS_WL550GE:
-	case ROUTER_MOTOROLA:
-	case ROUTER_RT480W:
-	case ROUTER_WRT350N:
-	case ROUTER_BUFFALO_WZRG144NH:
-	case ROUTER_DELL_TRUEMOBILE_2300_V2:
-		start_service("config_vlan");
-		break;
-	case ROUTER_UBNT_UNIFIAC:
-		nvram_set("vlan1ports", "0 8*");
-		nvram_set("vlan2ports", "1 8");
-		start_service("config_vlan");
-		break;
-	default:
-		if (check_vlan_support()) {
-			start_service("config_vlan");
-		}
-		break;
-
-	}
-#endif
-
 	set_ip_forward('1');
 	set_tcp_params();
 #ifdef HAVE_JFFS2
-	start_service("jffs2");
+	start_service_force("jffs2");
 #endif
 #ifdef HAVE_MMC
-	start_service("mmc");
+	start_service_force("mmc");
 #endif
 
 	start_service("mkfiles");
@@ -583,34 +557,34 @@ int main(int argc, char **argv)
 #ifndef HAVE_ERC
 #ifndef HAVE_CORENET
 #ifdef HAVE_TMK
-	fprintf(fp, "KMT-WAS %s (c) 2015 KMT GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "KMT-WAS %s (c) 2016 KMT GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_SANSFIL
-	fprintf(fp, "SANSFIL %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "SANSFIL %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_KORENRON
-	fprintf(fp, "KORENRON %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "KORENRON %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_TESTEM
-	fprintf(fp, "TESTEM %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "TESTEM %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_HOBBIT
-	fprintf(fp, "HQ-NDS %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "HQ-NDS %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_ONNET
 #ifdef HAVE_ONNET_BLANK
-	fprintf(fp, "Enterprise AP %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "Enterprise AP %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #elif HAVE_UNFY
 	//fprintf(fp, "UNIFY %s (c) 2013 \nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
-	fprintf(fp, "Firmware %s (c) 2013 \nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "Firmware %s (c) 2016 \nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #else
-	fprintf(fp, "OTAi %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "OTAi %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #endif
 #elif HAVE_HDWIFI
-	fprintf(fp, "HDWIFI %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
+	fprintf(fp, "HDWIFI %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE " (SVN revision: %s)\n", DIST, SVN_REVISION);
 #else
 #ifdef DIST
 	if (strlen(DIST) > 0)
-		fprintf(fp, "DD-WRT v3.0-r%s %s (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n",  SVN_REVISION, DIST);
+		fprintf(fp, "DD-WRT v3.0-r%s %s (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n", SVN_REVISION, DIST);
 	else
-		fprintf(fp, "DD-WRT v3.0-r%s custom (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n", SVN_REVISION);
+		fprintf(fp, "DD-WRT v3.0-r%s custom (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n", SVN_REVISION);
 #else
-	fprintf(fp, "DD-WRT v3.0-r%s custom (c) 2015 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n", SVN_REVISION);
+	fprintf(fp, "DD-WRT v3.0-r%s custom (c) 2016 NewMedia-NET GmbH\nRelease: " BUILD_DATE "\n", SVN_REVISION);
 #endif
 #endif
 #endif
@@ -724,6 +698,9 @@ int main(int argc, char **argv)
 #ifdef HAVE_EMF
 			stop_service("emf");
 #endif
+#ifdef HAVE_IPVS
+			stop_service("ipvs");
+#endif
 #ifdef HAVE_VLANTAGGING
 			stop_service("bridging");
 #endif
@@ -773,6 +750,9 @@ int main(int argc, char **argv)
 			start_service("bridging");
 #endif
 			start_service_force("lan");
+#ifdef HAVE_IPVS
+			start_service("ipvs");
+#endif
 #ifdef HAVE_BONDING
 			start_service("bonding");
 #endif
@@ -799,7 +779,6 @@ int main(int argc, char **argv)
 			cprintf("set led release wan control\n");
 			SET_LED(RELEASE_WAN_CONTROL);
 
-#ifndef HAVE_ERC
 #ifdef HAVE_RADIOOFF
 			if (nvram_match("radiooff_button", "1")
 			    && nvram_match("radiooff_boot_off", "1")) {
@@ -808,15 +787,16 @@ int main(int argc, char **argv)
 				led_control(LED_SEC1, LED_OFF);
 			} else
 #endif
-#endif
 			{
 				start_service_force("radio_off");
 				start_service_force("radio_on");
+
 			}
 			start_service_f("radio_timer");
 #ifdef HAVE_EMF
 			start_service("emf");
 #endif
+
 			cprintf("run rc file\n");
 #ifdef HAVE_REGISTER
 #ifndef HAVE_ERC
@@ -855,7 +835,6 @@ int main(int argc, char **argv)
 #ifdef HAVE_SYSLOG
 			startstop_f("syslog");
 #endif
-
 			system("/etc/postinit&");
 			start_service_f("httpd");
 			led_control(LED_DIAG, LED_OFF);

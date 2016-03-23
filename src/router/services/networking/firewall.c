@@ -168,6 +168,11 @@ static void save2file(const char *fmt, ...)
 	fclose(fp);
 }
 
+static int isstandalone(char *name)
+{
+	return (nvram_nmatch("0", "%s_bridged", name) || isbridge(name)) ? 1 : 0;
+}
+
 #if 0
 #define DEBUG printf
 #else
@@ -387,7 +392,7 @@ static void parse_upnp_forward()
 
 	if (nvram_match("upnp_clear", "1")) {	// tofu10
 		nvram_unset("upnp_clear");
-		for (i = 0; i < 50; ++i) {
+		for (i = 0; i < 1000; ++i) {
 			sprintf(name, "forward_port%d", i);
 			nvram_unset(name);
 		}
@@ -676,13 +681,13 @@ static void nat_prerouting(void)
 	/*
 	 * Enable remote Web GUI management 
 	 */
+	char tmp[1024];
 	if (remotemanage) {
 		if (remote_any) {
 			save2file("-A PREROUTING -p tcp -d %s --dport %s " "-j DNAT --to-destination %s:%d\n", wanaddr, nvram_safe_get("http_wanport"), lan_ip, web_lanport);
 		} else {
 			sscanf(remote_ip, "%s %s", from, to);
-
-			wordlist = range(from, get_complete_ip(from, to));
+			wordlist = range(from, get_complete_ip(from, to), tmp);
 
 			foreach(var, wordlist, next) {
 				save2file("-A PREROUTING -p tcp -s %s -d %s --dport %s " "-j DNAT --to-destination %s:%d\n", var, wanaddr, nvram_safe_get("http_wanport"), lan_ip, web_lanport);
@@ -699,7 +704,7 @@ static void nat_prerouting(void)
 		} else {
 			sscanf(remote_ip, "%s %s", from, to);
 
-			wordlist = range(from, get_complete_ip(from, to));
+			wordlist = range(from, get_complete_ip(from, to), tmp);
 
 			foreach(var, wordlist, next) {
 				save2file("-A PREROUTING -p tcp -s %s -d %s --dport %s " "-j DNAT --to-destination %s:%s\n", var, wanaddr, nvram_safe_get("sshd_wanport"), lan_ip, nvram_safe_get("sshd_port"));
@@ -718,7 +723,7 @@ static void nat_prerouting(void)
 		} else {
 			sscanf(remote_ip, "%s %s", from, to);
 
-			wordlist = range(from, get_complete_ip(from, to));
+			wordlist = range(from, get_complete_ip(from, to), tmp);
 
 			foreach(var, wordlist, next) {
 				save2file("-A PREROUTING -p tcp -s %s -d %s --dport %s " "-j DNAT --to-destination %s:23\n", var, wanaddr, nvram_safe_get("telnet_wanport"), lan_ip);
@@ -829,7 +834,7 @@ static void nat_postrouting(void)
 			save2file("-A POSTROUTING -o %s -j SNAT --to-source %s\n", wan_ifname_tun, inet_ntoa(ifaddr));
 		}
 */
-		if (nvram_match("block_loopback", "0")) {
+		if (nvram_match("block_loopback", "0") || nvram_match("filter", "off")) {
 			save2file("-A POSTROUTING -m mark --mark %s -j MASQUERADE\n", get_NFServiceMark("FORWARD", 1));
 		}
 
@@ -845,7 +850,7 @@ static void nat_postrouting(void)
 		foreach(var, vifs, next) {
 			if (strcmp(get_wan_face(), var)
 			    && strcmp(nvram_safe_get("lan_ifname"), var)) {
-				if (nvram_nmatch("0", "%s_bridged", var)) {
+				if (isstandalone(var)) {
 
 					char nat[32];
 					sprintf(nat, "%s_nat", var);
@@ -857,17 +862,17 @@ static void nat_postrouting(void)
 				}
 			}
 		}
-		if (nvram_match("block_loopback", "0"))
+		if (nvram_match("block_loopback", "0") || nvram_match("filter", "off"))
 			writeproc("/proc/sys/net/ipv4/conf/br0/loop", "1");
 
 		if (!nvram_match("wan_proto", "pptp") && !nvram_match("wan_proto", "l2tp") && nvram_match("wshaper_enable", "0")) {
-			eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "tcp", "-j", "CT", "--helper", "ddtb");	//this speeds up networking alot on slow systems 
-			eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "udp", "-j", "CT", "--helper", "ddtb");	//this speeds up networking alot on slow systems 
+			//eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "tcp", "-j", "CT", "--helper", "ddtb");       //this speeds up networking alot on slow systems 
+			//eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "udp", "-j", "CT", "--helper", "ddtb");       //this speeds up networking alot on slow systems 
 		}
 	} else {
 		if (!nvram_match("wan_proto", "pptp") && !nvram_match("wan_proto", "l2tp") && nvram_match("wshaper_enable", "0")) {
-			eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "tcp", "-j", "CT", "--helper", "ddtb");	//this speeds up networking alot on slow systems 
-			eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "udp", "-j", "CT", "--helper", "ddtb");	//this speeds up networking alot on slow systems 
+			//eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "tcp", "-j", "CT", "--helper", "ddtb");       //this speeds up networking alot on slow systems 
+			//eval("iptables", "-t", "raw", "-A", "PREROUTING", "-p", "udp", "-j", "CT", "--helper", "ddtb");       //this speeds up networking alot on slow systems 
 		}
 		eval("iptables", "-t", "raw", "-A", "PREROUTING", "-j", "NOTRACK");	//this speeds up networking alot on slow systems 
 		/* the following code must be used in future kernel versions, not yet used. we still need to test it */
@@ -1152,8 +1157,9 @@ static void ipgrp_chain(int seq, unsigned int mark, int urlenable)
 	char var1[256], *wordlist1, *next1;
 	char var2[256], *wordlist2, *next2;
 	char from[100], to[100];
+	char tmp[1024];
 	int a1 = 0, a2 = 0;
-	static char s1[32], s2[32];
+	char s1[32], s2[32];
 
 	wordlist1 = nvram_nget("filter_ip_grp%d", seq);
 	if (strcmp(wordlist1, "") == 0)
@@ -1185,7 +1191,7 @@ static void ipgrp_chain(int seq, unsigned int mark, int urlenable)
 			/*
 			 * The return value of range() is global string array 
 			 */
-			wordlist2 = range(from, to);
+			wordlist2 = range(from, to, tmp);
 		} else if (sscanf(var1, "%d", &a1) == 1) {
 			if (a1 == 0)	/* unset */
 				continue;
@@ -1783,7 +1789,7 @@ static void parse_trigger_out(char *wordlist)
 #ifdef HAVE_VLANTAGGING
 static void add_bridges(char *chain, int forward)
 {
-	static char word[256];
+	char word[256];
 	char *next, *wordlist;
 	char *wan = get_wan_face();
 	wordlist = nvram_safe_get("bridges");
@@ -2005,9 +2011,12 @@ static void filter_input(void)
 	/*
 	 * ICMP request from WAN interface 
 	 */
-	if (wanactive())
-		save2file("-A INPUT -i %s -p icmp -j %s\n", wanface, nvram_match("block_wan", "1") ? log_drop : log_accept);
-
+	if (wanactive()) {
+		if (nvram_invmatch("filter", "off"))
+			save2file("-A INPUT -i %s -p icmp -j %s\n", wanface, nvram_match("block_wan", "1") ? log_drop : log_accept);
+		else
+			save2file("-A INPUT -i %s -p icmp -j %s\n", wanface, log_accept);
+	}
 	/*
 	 * IGMP query from WAN interface 
 	 */
@@ -2022,7 +2031,7 @@ static void filter_input(void)
 	/*
 	 * SNMP access from WAN interface 
 	 */
-	if (nvram_match("snmpd_enable", "1") && nvram_match("block_snmp", "0")) {
+	if (nvram_match("snmpd_enable", "1") && (nvram_match("block_snmp", "0") || nvram_match("filter", "off"))) {
 		save2file("-A INPUT -i %s -p udp --dport 161 -j %s\n", wanface, log_accept);
 	}
 #endif
@@ -2058,7 +2067,7 @@ static void filter_input(void)
 	/*
 	 * Ident request backs by telnet or IRC server 
 	 */
-	if (nvram_match("block_ident", "0"))
+	if (nvram_match("block_ident", "0") || nvram_match("filter", "off"))
 		save2file("-A INPUT -p tcp --dport %d -j %s\n", IDENT_PORT, log_accept);
 
 	/*
@@ -2094,7 +2103,7 @@ static void filter_input(void)
 				save2file("-A INPUT -i %s -p tcp --dport 53 -j %s\n", var, log_accept);
 				save2file("-A INPUT -i %s -m state --state NEW -j %s\n", var, log_drop);
 			}
-			if (nvram_nmatch("0", "%s_bridged", var)) {
+			if (isstandalone(var)) {
 				save2file("-A INPUT -i %s -j %s\n", var, log_accept);
 			}
 
@@ -2167,8 +2176,7 @@ static void filter_forward(void)
 	foreach(var, vifs, next) {
 		if (strcmp(get_wan_face(), var)
 		    && strcmp(nvram_safe_get("lan_ifname"), var)) {
-			if (nvram_nmatch("0", "%s_bridged", var)
-			    && nvram_nmatch("1", "%s_nat", var)) {
+			if (isstandalone(var) && nvram_nmatch("1", "%s_nat", var)) {
 				save2file("-A FORWARD -i %s -j %s\n", var, log_accept);
 			}
 		}
@@ -2198,7 +2206,7 @@ static void filter_forward(void)
 	// save2file ("-A FORWARD -i %s -o %s -p tcp --dport %d "
 	// "-m webstr --content %d -j %s\n",
 	// lanface, wanface, HTTP_PORT, webfilter, log_reject);
-	if (webfilter && strlen(wanface)) {
+	if (nvram_invmatch("filter", "off") && webfilter && strlen(wanface)) {
 		insmod("ipt_webstr");
 		save2file("-A FORWARD -i %s -o %s -p tcp " "-m webstr --content %d -j %s\n", lanface, wanface, webfilter, log_reject);
 	}
@@ -2400,7 +2408,7 @@ static void mangle_table(void)
 {
 	save2file("*mangle\n" ":PREROUTING ACCEPT [0:0]\n" ":OUTPUT ACCEPT [0:0]\n");
 
-	if (wanactive() && nvram_match("block_loopback", "0")) {
+	if (wanactive() && (nvram_match("block_loopback", "0") || nvram_match("filter", "off"))) {
 		insmod("ipt_mark xt_mark ipt_CONNMARK xt_CONNMARK xt_connmark");
 
 		save2file("-A PREROUTING -i ! %s -d %s -j MARK --set-mark %s\n", get_wan_face(), get_wan_ipaddr(), get_NFServiceMark("FORWARD", 1));
@@ -2508,6 +2516,28 @@ static void filter_table(void)
 			filter_output();
 			filter_forward();
 		}
+	} else {
+		char dev[16];
+		char var[80];
+		char vifs[256];
+		char *next;
+		getIfLists(vifs, 256);
+		foreach(var, vifs, next) {
+			if (strcmp(get_wan_face(), var)
+			    && strcmp(nvram_safe_get("lan_ifname"), var)) {
+				if (nvram_nmatch("1", "%s_isolation", var)) {
+					save2file("-A INPUT -i %s -p udp --dport 67 -j %s\n", var, log_accept);
+					save2file("-A INPUT -i %s -p udp --dport 53 -j %s\n", var, log_accept);
+					save2file("-A INPUT -i %s -p tcp --dport 53 -j %s\n", var, log_accept);
+					save2file("-A INPUT -i %s -m state --state NEW -j %s\n", var, log_drop);
+				}
+				if (isstandalone(var)) {
+					save2file("-A INPUT -i %s -j %s\n", var, log_accept);
+				}
+
+			}
+		}
+
 	}
 
 	/*
@@ -2611,7 +2641,7 @@ void start_firewall6(void)
 
 	fprintf(stderr, "start firewall6\n");
 
-	insmod("nf_defrag_ipv6 ip6_tables nf_conntrack_ipv6 ip6table_filter");
+	insmod("nf_defrag_ipv6 nf_log_ipv6 ip6_tables nf_conntrack_ipv6 ip6table_filter");
 
 	eval("ip6tables", "-F", "INPUT");
 	eval("ip6tables", "-F", "FORWARD");
@@ -2653,7 +2683,7 @@ void start_firewall6(void)
 
 	if (nvram_match("ipv6_typ", "ipv6in4"))
 		eval("ip6tables", "-A", "FORWARD", "-o", "ip6tun", "-j", "ACCEPT");
-	
+
 	eval("ip6tables", "-A", "FORWARD", "-p", "icmpv6", "--icmpv6-type", "echo-request", "-m", "limit", "--limit", "2/s", "-j", "ACCEPT");
 
 	eval("ip6tables", "-A", "FORWARD", "-j", "DROP");

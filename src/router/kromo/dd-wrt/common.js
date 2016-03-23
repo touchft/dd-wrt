@@ -978,7 +978,7 @@ function checkformelements( form ) {
 		} else if( form.elements[i].type == 'text' ) {
 			if( chars = invalidTextValue(form.elements[i].value ) ) {
 				//alert('Invalid input characters "' + chars + '" in field "' + getInputLabel( 'input', form.elements[i].name ) + '"');
-				alert(errmsg.err112.replace('<invchars>', chars).replace('<fieldname>', getInputLabel( 'input', elements[i].name )));
+				alert(errmsg.err112.replace('<invchars>', chars).replace('<fieldname>', getInputLabel( 'input', form.elements[i].name )));
 				form.elements[i].style.border = "solid 2px #f00";
 				form.elements[i].focus();
 				return false;
@@ -1097,7 +1097,7 @@ function getOUIFromMAC(mac) {
 
 	tab = mac.split(mac.substr(2,1));
 
-	var win = window.open("http://standards.ieee.org/cgi-bin/ouisearch?" + tab[0] + '-' + tab[1] + '-' + tab[2], 'DDWRT_OUI_Search', 'top=' + top + ',left=' + left + ',width=' + width + ',height=' + height + ",resizable=yes,scrollbars=yes,statusbar=no");
+	var win = window.open("http://oidsearch.s.dd-wrt.com/search/" + tab[0] + ':' + tab[1] + ':' + tab[2], 'DDWRT_OUI_Search', 'top=' + top + ',left=' + left + ',width=' + width + ',height=' + height + ",resizable=yes,scrollbars=yes,statusbar=no");
 	addEvent(window, "unload", function() { if(!win.closed) win.close(); });
 	win.focus();
 }

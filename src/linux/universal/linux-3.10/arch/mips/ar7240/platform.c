@@ -203,6 +203,23 @@ static void __init ath79_usb_register(const char *name, int id,
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 }
 
+static void ar933x_usb_setup(void)
+{
+	ar71xx_device_stop(AR933X_RESET_USBSUS_OVERRIDE);
+	mdelay(10);
+
+	ar71xx_device_start(AR933X_RESET_USB_HOST);
+	mdelay(10);
+
+	ar71xx_device_start(AR933X_RESET_USB_PHY);
+	mdelay(10);
+
+	ath79_usb_register("ehci-platform", -1,
+			   AR933X_EHCI_BASE, AR933X_EHCI_SIZE,
+			   3,
+			   &ath79_ehci_pdata_v2, sizeof(ath79_ehci_pdata_v2));
+}
+
 
 static void qca956x_usb_setup(void)
 {
@@ -428,7 +445,6 @@ static void __init ap136_gmac_setup(void)
 
 
 static struct ar8327_pad_cfg db120_ar8327_pad0_cfg = {
-	.mac06_exchange_en = true,
 	.mode = AR8327_PAD_MAC_RGMII,
 	.txclk_delay_en = true,
 	.rxclk_delay_en = true,
@@ -484,7 +500,6 @@ static struct mdio_board_info db120_mdio0_info[] = {
 };
 
 static struct ar8327_pad_cfg wdr4300_ar8327_pad0_cfg = {
-	.mac06_exchange_en = true,
 	.mode = AR8327_PAD_MAC_RGMII,
 	.txclk_delay_en = true,
 	.rxclk_delay_en = true,
@@ -522,7 +537,6 @@ static struct mdio_board_info wdr4300_mdio0_info[] = {
 
 
 static struct ar8327_pad_cfg ap152_ar8337_pad0_cfg = {
-	.mac06_exchange_en = true,
 	.mode = AR8327_PAD_MAC_SGMII,
 	.txclk_delay_en = true,
 	.rxclk_delay_en = true,
@@ -550,7 +564,7 @@ static struct mdio_board_info ap152_mdio0_info[] = {
 };
 
 static struct ar8327_pad_cfg wpj344_ar8327_pad0_cfg = {
-	.mac06_exchange_en = false,
+	.mac06_exchange_dis = true,
 	.mode = AR8327_PAD_MAC_RGMII,
 	.txclk_delay_en = true,
 	.rxclk_delay_en = true,
@@ -605,6 +619,30 @@ static __init ath79_setup_ar933x_phy4_switch(bool mac, bool mdio)
 	if (mdio)
 		t |= AR933X_ETH_CFG_SW_PHY_ADDR_SWAP;
 	__raw_writel(t, base + AR933X_GMAC_REG_ETH_CFG);
+
+	iounmap(base);
+}
+
+void __init ath79_setup_ar934x_eth_cfg(u32 mask)
+{
+	void __iomem *base;
+	u32 t;
+
+	base = ioremap(AR934X_GMAC_BASE, AR934X_GMAC_SIZE);
+
+	t = __raw_readl(base + AR934X_GMAC_REG_ETH_CFG);
+
+	t &= ~(AR934X_ETH_CFG_RGMII_GMAC0 |
+	       AR934X_ETH_CFG_MII_GMAC0 |
+	       AR934X_ETH_CFG_GMII_GMAC0 |
+	       AR934X_ETH_CFG_SW_ONLY_MODE |
+	       AR934X_ETH_CFG_SW_PHY_SWAP);
+
+	t |= mask;
+
+	__raw_writel(t, base + AR934X_GMAC_REG_ETH_CFG);
+	/* flush write */
+	__raw_readl(base + AR934X_GMAC_REG_ETH_CFG);
 
 	iounmap(base);
 }
@@ -780,6 +818,10 @@ printk(KERN_INFO "found nothing\n");
 return NULL;
 }
 
+void __init ap91_wmac_disable_2ghz(void);
+void __init ap91_wmac_disable_5ghz(void);
+void ap91_set_tx_gain_buffalo(void);
+
 int __init ar7240_platform_init(void)
 {
 	int ret;
@@ -824,7 +866,11 @@ int __init ar7240_platform_init(void)
 	u32 t;
 
     #if !defined(CONFIG_WDR4300) && !defined(CONFIG_AP135) && !defined(CONFIG_UBNTXW) && !defined(CONFIG_DAP2230)
-    #ifdef CONFIG_DIR825C1
+    #ifdef CONFIG_JWAP606
+	mac = (u8 *)KSEG1ADDR(0x1fff0000);
+	ath79_init_mac(mac0, mac, -1);
+	ath79_init_mac(mac1, mac, 0);
+    #elif CONFIG_DIR825C1
 	#ifdef CONFIG_DIR859
 	dir825b1_read_ascii_mac(mac0, DIR859_MAC_LOCATION_0);
 	dir825b1_read_ascii_mac(mac1, DIR859_MAC_LOCATION_1);
@@ -904,6 +950,10 @@ int __init ar7240_platform_init(void)
     #elif CONFIG_WR841V9
        ath79_setup_ar933x_phy4_switch(false, false);
 
+    #elif CONFIG_JWAP606
+
+	ath79_setup_ar934x_eth_cfg(AR934X_ETH_CFG_RGMII_GMAC0 | 0x14000);
+	
     #elif CONFIG_WR841V8
 	//swap phy
 	base = ioremap(AR934X_GMAC_BASE, AR934X_GMAC_SIZE);
@@ -985,6 +1035,19 @@ int __init ar7240_platform_init(void)
 
 	ar71xx_add_device_eth(0);
 	ar71xx_add_device_eth(1);
+    #elif CONFIG_JWAP606
+	ap91_wmac_disable_2ghz();
+	ar71xx_add_device_mdio(0, 0x0);
+	ar71xx_init_mac(ar71xx_eth0_data.mac_addr, mac, -1);
+
+	ar71xx_eth0_data.phy_if_mode = PHY_INTERFACE_MODE_RGMII;
+	ar71xx_eth0_data.phy_mask = BIT(0);
+	ar71xx_eth0_data.speed = SPEED_1000;
+	ar71xx_eth0_data.duplex = DUPLEX_FULL;
+	ar71xx_eth0_data.mii_bus_dev = &ar71xx_mdio0_device.dev;
+	ar71xx_eth0_pll_data.pll_1000 = 0x0e000000;
+	ar71xx_add_device_eth(0);
+	
     #elif CONFIG_DAP3310
 	ar71xx_add_device_mdio(1, 0x0);
 	ar71xx_init_mac(ar71xx_eth0_data.mac_addr, mac, -1);
@@ -1107,6 +1170,7 @@ int __init ar7240_platform_init(void)
 	/* GMAC0 of the AR8327 switch is connected to GMAC1 via SGMII */
 	ap136_ar8327_pad0_cfg.mode = AR8327_PAD_MAC_SGMII;
 	ap136_ar8327_pad0_cfg.sgmii_delay_en = true;
+
 	ar71xx_add_device_mdio(0, 0x0);
 	ar71xx_eth0_pll_data.pll_1000 = 0x56000000;
 	ar71xx_eth1_pll_data.pll_1000 = 0x03000101;
@@ -1239,13 +1303,16 @@ int __init ar7240_platform_init(void)
 	if (ret < 0)
 		return ret;
 
-	if (is_ar7241() || is_ar7242() || is_ar933x() || is_ar934x()) {
+	if (is_ar7241() || is_ar7242() || is_ar934x()) {
 		ret = platform_add_devices(ar7241_platform_devices, ARRAY_SIZE(ar7241_platform_devices));
 	}
 	if (is_ar7240()) {
 		ret = platform_add_devices(ar7240_platform_devices, ARRAY_SIZE(ar7240_platform_devices));
 	}
 
+	if (is_ar933x()) {
+		ar933x_usb_setup();
+	}
 	if (is_qca955x() || is_qca956x()) {
 		qca_usbregister();
 	}

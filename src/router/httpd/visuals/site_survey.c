@@ -38,6 +38,46 @@
 
 #include <wlutils.h>
 
+int getrate(int rate, int bw)
+{
+	int result = rate;
+	switch (rate) {
+	case 150:
+		if (bw == 20)
+			result = 722;
+		if (bw == 80)
+			result = 4333;
+		if (bw == 160)
+			result = 8667;
+		break;
+	case 300:
+		if (bw == 20)
+			result = 1444;
+		if (bw == 80)
+			result = 8667;
+		if (bw == 160)
+			result = 17333;
+		break;
+	case 450:
+		if (bw == 20)
+			result = 2167;
+		if (bw == 80)
+			result = 13000;
+		if (bw == 160)
+			result = 23400;	// this rate is not specified
+		break;
+	case 600:
+		if (bw == 20)
+			result = 2889;
+		if (bw == 80)
+			result = 17333;
+		if (bw == 160)
+			result = 34667;
+		break;
+	}
+	return result;
+}
+
 static struct site_survey_list site_survey_lists[SITE_SURVEY_NUM];
 
 static int open_site_survey(void)
@@ -60,7 +100,7 @@ static char *dtim_period(int dtim, char *mem)
 		snprintf(mem, 32, "%d", dtim);
 	else
 		snprintf(mem, 32, "%s", "None");
-
+	return mem;
 }
 
 #ifdef FBNFW
@@ -92,7 +132,6 @@ void ej_list_fbn(webs_t wp, int argc, char_t ** argv)
 void ej_dump_site_survey(webs_t wp, int argc, char_t ** argv)
 {
 	int i;
-	char buf[10] = { 0 };
 	char *rates = NULL;
 	char *name;
 
@@ -135,35 +174,23 @@ void ej_dump_site_survey(webs_t wp, int argc, char_t ** argv)
 			//0x000 = 80 mhz
 			//0x100 = 8080 mhz
 			//0x200 = 160 mhz
-			int speed = site_survey_lists[i].rate_count;
+			int speed = site_survey_lists[i].rate_count * 10;
 
 			switch (cbw) {
 			case 0:
-				if (speed == 150)
-					speed = 433;
-				else if (speed == 300)
-					speed = 867;
-				else if (speed == 450)
-					speed = 1300;
-				else if (speed == 600)
-					speed = 1733;
+				speed = getrate(speed, 80);
+				break;
 			case 0x100:
 			case 0x200:
-				if (speed == 150)
-					speed = 867;
-				else if (speed == 300)
-					speed = 1733;
-				else if (speed == 450)
-					speed = 2340;
-				else if (speed == 600)
-					speed = 3466;
+				speed = getrate(speed, 160);
+				break;
 			}
 			rates = strbuf;
 
 			if ((site_survey_lists[i].channel & 0xff) < 15) {
-				sprintf(rates, "%d(b/g/n/ac)", speed);
+				sprintf(rates, "%d.%d(b/g/n/ac)", speed / 10, speed % 10);
 			} else {
-				sprintf(rates, "%d(a/n/ac)", speed);
+				sprintf(rates, "%d.%d(a/n/ac)", speed / 10, speed % 10);
 			}
 
 		} else if (site_survey_lists[i].channel & 0x2000) {
@@ -172,23 +199,27 @@ void ej_dump_site_survey(webs_t wp, int argc, char_t ** argv)
 			int rc = site_survey_lists[i].rate_count;
 			switch (rc) {
 			case 4:
-				speed = 11;
+			case 11:
+				rc = 4;
+				speed = 110;
 				break;
 			case 12:
-				speed = 54;
+			case 54:
+				rc = 12;
+				speed = 540;
 				break;
 			case 13:
-				speed = 108;
+				speed = 1080;
 				break;
 			default:
-				speed = rc;
+				speed = rc * 10;
 			}
 			rates = strbuf;
 
 			if ((site_survey_lists[i].channel & 0xff) < 15) {
-				sprintf(rates, "%d%s", speed, rc == 4 ? "(b)" : rc < 14 ? "(b/g)" : "(b/g/n)");
+				sprintf(rates, "%d.%d%s", speed / 10, speed % 10, rc == 4 ? "(b)" : rc < 14 ? "(b/g)" : "(b/g/n)");
 			} else {
-				sprintf(rates, "%d%s", speed, rc < 14 ? "(a)" : "(a/n)");
+				sprintf(rates, "%d.%d%s", speed / 10, speed % 10, rc < 14 ? "(a)" : "(a/n)");
 			}
 
 		} else {
@@ -196,36 +227,27 @@ void ej_dump_site_survey(webs_t wp, int argc, char_t ** argv)
 			int rc = site_survey_lists[i].rate_count;
 			switch (rc) {
 			case 4:
-				speed = 11;
+			case 11:
+				rc = 4;
+				speed = 110;
 				break;
 			case 12:
-				speed = 54;
+			case 54:
+				rc = 12;
+				speed = 540;
 				break;
 			case 13:
-				speed = 108;
-				break;
-			case 150:
-				speed = 72;
-				break;
-			case 300:
-				speed = 144;
-				break;
-			case 450:
-				speed = 217;
-				break;
-			case 600:
-				speed = 289;
+				speed = 1080;
 				break;
 			default:
-				speed = rc;
-				break;
+				speed = getrate(rc, 20);
 			}
 			rates = strbuf;
 
 			if ((site_survey_lists[i].channel & 0xff) < 15) {
-				sprintf(rates, "%d%s", speed, rc == 4 ? "(b)" : rc < 14 ? "(b/g)" : "(b/g/n)");
+				sprintf(rates, "%d.%d%s", speed / 10, speed % 10, rc == 4 ? "(b)" : rc < 14 ? "(b/g)" : "(b/g/n)");
 			} else {
-				sprintf(rates, "%d%s", speed, rc < 14 ? "(a)" : "(a/n)");
+				sprintf(rates, "%d.%d%s", speed / 10, speed % 10, rc < 14 ? "(a)" : "(a/n)");
 			}
 		}
 

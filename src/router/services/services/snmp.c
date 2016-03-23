@@ -47,25 +47,40 @@ void start_snmp(void)
 
 	if (!nvram_invmatch("snmpd_enable", "0"))
 		return;
+#ifdef HAVE_NEXTMEDIA
+	if (f_exists("/jffs/etc/snmpd.conf")) {
+		sysprintf("ln -s /jffs/etc/snmpd.conf " SNMP_CONF_FILE);
+	} else {
+#endif
 
-	fp = fopen(SNMP_CONF_FILE, "w");
-	if (NULL == fp)
-		return;
+		fp = fopen(SNMP_CONF_FILE, "w");
+		if (NULL == fp)
+			return;
 
-	if (strlen(nvram_safe_get("snmpd_syslocation")) > 0)
-		fprintf(fp, "syslocation %s\n", nvram_safe_get("snmpd_syslocation"));
-	if (strlen(nvram_safe_get("snmpd_syscontact")) > 0)
-		fprintf(fp, "syscontact %s\n", nvram_safe_get("snmpd_syscontact"));
-	if (strlen(nvram_safe_get("snmpd_sysname")) > 0)
-		fprintf(fp, "sysname %s\n", nvram_safe_get("snmpd_sysname"));
-	if (strlen(nvram_safe_get("snmpd_rocommunity")) > 0)
-		fprintf(fp, "rocommunity %s\n", nvram_safe_get("snmpd_rocommunity"));
-	if (strlen(nvram_safe_get("snmpd_rwcommunity")) > 0)
-		fprintf(fp, "rwcommunity %s\n", nvram_safe_get("snmpd_rwcommunity"));
-	fprintf(fp, "sysservices 9\n");
-	fprintf(fp, "pass_persist .1.3.6.1.4.1.2021.255 /etc/wl_snmpd.sh\n");
+		if (strlen(nvram_safe_get("snmpd_syslocation")) > 0)
+			fprintf(fp, "syslocation %s\n", nvram_safe_get("snmpd_syslocation"));
+		if (strlen(nvram_safe_get("snmpd_syscontact")) > 0)
+			fprintf(fp, "syscontact %s\n", nvram_safe_get("snmpd_syscontact"));
+		if (strlen(nvram_safe_get("snmpd_sysname")) > 0)
+			fprintf(fp, "sysname %s\n", nvram_safe_get("snmpd_sysname"));
+		if (strlen(nvram_safe_get("snmpd_rocommunity")) > 0)
+			fprintf(fp, "rocommunity %s\n", nvram_safe_get("snmpd_rocommunity"));
+		if (strlen(nvram_safe_get("snmpd_rwcommunity")) > 0)
+			fprintf(fp, "rwcommunity %s\n", nvram_safe_get("snmpd_rwcommunity"));
+		fprintf(fp, "sysservices 9\n");
+#ifdef HAVE_NEXTMEDIA
+		if (!f_exists("/jffs/custom_snmp/snmpd.tail")) {
+#endif
+			fprintf(fp, "pass_persist .1.3.6.1.4.1.2021.255 /etc/wl_snmpd.sh\n");
 
-	fclose(fp);
+			fclose(fp);
+#ifdef HAVE_NEXTMEDIA
+		} else {
+			fclose(fp);
+			sysprintf("cat /jffs/custom_snmp/snmpd.tail >> " SNMP_CONF_FILE);
+		}
+	}
+#endif
 	_evalpid(snmpd_argv, NULL, 0, &pid);
 
 	cprintf("done\n");

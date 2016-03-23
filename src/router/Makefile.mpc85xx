@@ -106,7 +106,7 @@ ifeq ($(ARCH),mips)
 export COPTS:=$(BASEOPT) -pipe -mips32 -mtune=mips32 -funit-at-a-time 
 endif
 ifeq ($(ARCH),powerpc)
-export COPTS:=$(BASEOPT) -pipe -Os -pipe -fno-caller-saves -mcpu=8540 
+export COPTS:=$(BASEOPT) -pipe -Os -pipe -fno-caller-saves -mcpu=8540
 #-D_FILE_OFFSET_BITS=64
 endif
 ifeq ($(ARCH),i386)
@@ -158,6 +158,7 @@ build_date:
 	echo "#define BUILD_DATE \"$(shell date +%D)\"" > ../../opt/build.h 
 	echo "CONFIG_MUSL=y" >> .config 
 
+include kernel-features.mk
 
 kernel:
         # Also build kernel
@@ -168,11 +169,7 @@ ifeq ($(CONFIG_UNIWIP),y)
 	-cp $(LINUXDIR)/.config_uniwip $(LINUXDIR)/.config
 endif
 
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP is not set" >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 
 	rm -f $(LINUXDIR)/symtab.h
 	touch $(LINUXDIR)/symtab.h
@@ -259,7 +256,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean pppd-clean	
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)
@@ -297,7 +294,7 @@ endif
 ifneq ($(CONFIG_MUSL),y)
 	cp ${shell $(ARCH)-linux-gcc -print-file-name=ld-uClibc.so.0} $(ARCH)-uclibc/target/lib/ld-uClibc.so.0 
 else
-	cd $(ARCH)-uclibc/target/lib && ln -sf libc.so ld-musl-powerpc.so.1
+	cd $(ARCH)-uclibc/target/lib && ln -sf libc.so ld-musl-powerpc-sf.so.1
 endif
 ifeq ($(CONFIG_LIBDL),y)
 	-cp ${shell $(ARCH)-linux-gcc -print-file-name=libdl.so.0} $(ARCH)-uclibc/target/lib/libdl.so.0 
@@ -357,7 +354,7 @@ else
 		--sysroot $(TARGETDIR) \
 		-L /lib \
 		-L /usr/lib \
-		--ldlib /lib/ld-musl-powerpc.so.1 \
+		--ldlib /lib/ld-musl-powerpc-sf.so.1 \
 		--target $(ARCH)-linux-uclibc \
 		`cat /tmp/$(ARCHITECTURE)/mklibs-progs` 2>&1
 

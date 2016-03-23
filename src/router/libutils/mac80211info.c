@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <glob.h>
 #include <bcmnvram.h>
+#include <shutils.h>
 
 #include "unl.h"
 #include "mac80211regulatory.h"
@@ -164,7 +165,8 @@ static int mac80211_cb_survey(struct nl_msg *msg, void *data)
 		goto out;
 
 	freq = nla_get_u32(sinfo[NL80211_SURVEY_INFO_FREQUENCY]);
-
+	if (!mac80211_info->noise)
+		mac80211_info->noise = -95;
 	if (sinfo[NL80211_SURVEY_INFO_IN_USE]) {
 
 		if (sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME] && sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_BUSY]) {
@@ -224,16 +226,36 @@ nla_put_failure:
 }
 
 #ifdef HAVE_ATH10K
+int is_beeliner(const char *prefix)
+{
+	char globstring[1024];
+	int devnum;
+	devnum = get_ath9k_phy_ifname(prefix);
+	if (devnum == -1)
+		return 0;
+
+	sprintf(globstring, "/sys/class/ieee80211/phy%d/device/device", devnum);
+	FILE *fp = fopen(globstring, "rb");
+	if (!fp)
+		return 0;
+	char buf[32];
+	fscanf(fp, "%s", buf);
+	fclose(fp);
+	if (!strcmp(buf, "0x0040"))
+		return 1;
+	return 0;
+}
+
 unsigned int get_ath10kreg(char *ifname, unsigned int reg)
 {
-
+	unsigned int baseaddress = is_beeliner(ifname) ? 0x30000 : 0x20000;
 	char file[64];
 	int phy = get_ath9k_phy_ifname(ifname);
 	sprintf(file, "/sys/kernel/debug/ieee80211/phy%d/ath10k/reg_addr", phy);
 	FILE *fp = fopen(file, "wb");
 	if (fp == NULL)
 		return 0;
-	fprintf(fp, "0x%x", reg);
+	fprintf(fp, "0x%x", baseaddress + reg);
 	fclose(fp);
 	sprintf(file, "/sys/kernel/debug/ieee80211/phy%d/ath10k/reg_value", phy);
 	fp = fopen(file, "rb");
@@ -247,13 +269,14 @@ unsigned int get_ath10kreg(char *ifname, unsigned int reg)
 
 void set_ath10kreg(char *ifname, unsigned int reg, unsigned int value)
 {
+	unsigned int baseaddress = is_beeliner(ifname) ? 0x30000 : 0x20000;
 	char file[64];
 	int phy = get_ath9k_phy_ifname(ifname);
 	sprintf(file, "/sys/kernel/debug/ieee80211/phy%d/ath10k/reg_addr", phy);
 	FILE *fp = fopen(file, "wb");
 	if (fp == NULL)
 		return;
-	fprintf(fp, "0x%x", reg);
+	fprintf(fp, "0x%x", baseaddress + reg);
 	fclose(fp);
 	sprintf(file, "/sys/kernel/debug/ieee80211/phy%d/ath10k/reg_value", phy);
 	fp = fopen(file, "wb");
@@ -265,8 +288,11 @@ void set_ath10kreg(char *ifname, unsigned int reg, unsigned int value)
 
 void set_ath10kdistance(char *dev, unsigned int distance)
 {
+	unsigned int isb = is_beeliner(dev);
+	unsigned int macclk = isb ? 142 : 88;
 	unsigned int slot = ((distance + 449) / 450) * 3;
-	slot += 9;		// base time
+	unsigned int baseslot = 9;
+	slot += baseslot;	// base time
 	unsigned int sifs = 16;
 	unsigned int ack = slot + sifs;
 	unsigned int cts = ack;
@@ -275,31 +301,57 @@ void set_ath10kdistance(char *dev, unsigned int distance)
 	if (slot == 0)		// too low value. 
 		return;
 
-	ack *= 88;		// 88Mhz is the core clock of AR9880
-	cts *= 88;
-	sifs *= 88;
-	slot *= 88;
-	if (ack > 0x3fff) {
+	if (!isb) {
+		ack *= macclk;	// 88Mhz is the core clock of AR9880
+		cts *= macclk;
+		slot *= macclk;
+		sifs *= macclk;
+	}
+	if (!isb && ack > 0x3fff) {
 		fprintf(stderr, "invalid ack 0x%08x, max is 0x3fff. truncate it\n", ack);
 		ack = 0x3fff;
+	} else if (isb && ack > 0xffff) {
+		fprintf(stderr, "invalid ack 0x%08x, max is 0xff. truncate it\n", ack);
+		ack = 0xffff;
 	}
-	unsigned int oldack = get_ath10kreg(dev, 0x28014) & 0x3fff;
+
+	unsigned int oldack;
+	if (isb)
+		oldack = get_ath10kreg(dev, 0xf424) & 0xffff;
+	else
+		oldack = get_ath10kreg(dev, 0x8014) & 0x3fff;
+
 	if (oldack != ack) {
-		set_ath10kreg(dev, 0x21070, slot);
-		set_ath10kreg(dev, 0x21030, sifs);
-		set_ath10kreg(dev, 0x28014, (cts << 16 & 0x3fff0000) | (ack & 0x3fff));
+		if (isb) {
+			set_ath10kreg(dev, 0x0040, baseslot);
+			set_ath10kreg(dev, 0xf420, ((sifs << 8) & 0x1ff00) | (slot & 0xff));
+			set_ath10kreg(dev, 0xf424, ack & 0xffff);
+		} else {
+			set_ath10kreg(dev, 0x1070, slot);
+			set_ath10kreg(dev, 0x1030, sifs);
+			set_ath10kreg(dev, 0x8014, ((cts << 16) & 0x3fff0000) | (ack & 0x3fff));
+		}
 	}
+
 }
 
 unsigned int get_ath10kack(char *ifname)
 {
-	unsigned int ack, slot, sifs;
+	unsigned int isb = is_beeliner(ifname);
+	unsigned int macclk = isb ? 142 : 88;
+	unsigned int ack, slot, sifs, baseslot = 9;
 	/* since qualcom/atheros missed to implement one of the most important features in wireless devices, we need this evil hack here */
-	slot = (get_ath10kreg(ifname, 0x21070)) / 88;
-	sifs = (get_ath10kreg(ifname, 0x21030)) / 88;
-	ack = (get_ath10kreg(ifname, 0x28014) & 0x3fff) / 88;
+	if (isb) {
+		baseslot = (get_ath10kreg(ifname, 0x0040));
+		ack = (get_ath10kreg(ifname, 0xf424) & 0xffff);
+		sifs = ((get_ath10kreg(ifname, 0xf420) >> 8) & 0x1ff);
+	} else {
+		slot = (get_ath10kreg(ifname, 0x1070)) / macclk;
+		ack = (get_ath10kreg(ifname, 0x8014) & 0x3fff) / macclk;
+		sifs = (get_ath10kreg(ifname, 0x1030)) / macclk;
+	}
 	ack -= sifs;
-	ack -= 9;
+	ack -= baseslot;
 	return ack;
 }
 
@@ -785,13 +837,13 @@ struct wifi_channels *mac80211_get_channels(char *interface, char *country, int 
 					rrdcount = rd->n_reg_rules;
 				for (rrc = 0; rrc < rrdcount; rrc++) {
 					regfreq = rd->reg_rules[rrc].freq_range;
-					startfreq = (int)((float)(regfreq.start_freq_khz) / 1000.0);
-					stopfreq = (int)((float)(regfreq.end_freq_khz) / 1000.0);
-					regmaxbw = (int)((float)(regfreq.max_bandwidth_khz) / 1000.0);
+					startfreq = regfreq.start_freq_khz / 1000;
+					stopfreq = regfreq.end_freq_khz / 1000;
+					regmaxbw = regfreq.max_bandwidth_khz / 1000;
 					if (!skip)
 						regmaxbw = 40;
 					else
-						regmaxbw = (int)((float)(regfreq.max_bandwidth_khz) / 1000.0);
+						regmaxbw = regfreq.max_bandwidth_khz / 1000;
 					if (!skip || ((freq_mhz - range) >= startfreq && (freq_mhz + range) <= stopfreq)) {
 						if (run == 1) {
 							regpower = rd->reg_rules[rrc].power_rule;
@@ -801,11 +853,16 @@ struct wifi_channels *mac80211_get_channels(char *interface, char *country, int 
 							    && ieee80211_mhz2ieee(freq_mhz) > 11 && ieee80211_mhz2ieee(freq_mhz) < 14 && nvram_default_match("region", "SA", ""))
 								continue;
 #endif
+							if (checkband == 2 && freq_mhz > 4000)
+								continue;
+							if (checkband == 5 && freq_mhz < 4000)
+								continue;
 							list[count].channel = ieee80211_mhz2ieee(freq_mhz);
 							list[count].freq = freq_mhz;
+
 							// todo: wenn wir das ueberhaupt noch verwenden
 							list[count].noise = 0;
-							list[count].max_eirp = (int)((float)(regpower.max_eirp) / 100.0);
+							list[count].max_eirp = regpower.max_eirp / 100;
 							if (rd->reg_rules[rrc].flags & RRF_NO_OFDM)
 								list[count].no_ofdm = 1;
 							if (rd->reg_rules[rrc].flags & RRF_NO_CCK)
@@ -824,7 +881,7 @@ struct wifi_channels *mac80211_get_channels(char *interface, char *country, int 
 								list[count].passive_scan = 1;
 							if (rd->reg_rules[rrc].flags & RRF_NO_IBSS)
 								list[count].no_ibss = 1;
-							if (regmaxbw == 40 || regmaxbw == 80) {
+							if (regmaxbw == 40 || regmaxbw == 80 || regmaxbw == 160) {
 								if ((freq_mhz - htrange) >= startfreq) {
 									list[count].ht40minus = 1;
 								}

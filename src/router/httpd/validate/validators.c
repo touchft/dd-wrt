@@ -619,7 +619,8 @@ void validate_password(webs_t wp, char *value, struct variable *v)
 	}
 #endif
 	if (strcmp(value, TMP_PASSWD) && valid_name(wp, value, v)) {
-		nvram_set(v->name, zencrypt(value));
+		char passout[MD5_OUT_BUFSIZE];
+		nvram_set(v->name, zencrypt(value, passout));
 
 		eval("/sbin/setpasswd");
 	}
@@ -2811,7 +2812,7 @@ void validate_filter_web(webs_t wp, char *value, struct variable *v)
 	/*
 	 * Handle Website Blocking by Keyword 
 	 */
-	for (i = 0; i < 14; i++) {
+	for (i = 0; i < 16; i++) {
 		char filter_url[] = "urlXXX";
 		char *url;
 

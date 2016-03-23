@@ -60,9 +60,9 @@
 #include "testcode/testpkts.h"
 #include "util/log.h"
 #include "util/fptr_wlist.h"
-#include "ldns/sbuffer.h"
-#include "ldns/wire2str.h"
-#include "ldns/str2wire.h"
+#include "sldns/sbuffer.h"
+#include "sldns/wire2str.h"
+#include "sldns/str2wire.h"
 #include <signal.h>
 struct worker;
 struct daemon_remote;
@@ -569,7 +569,7 @@ do_infra_rtt(struct replay_runtime* runtime)
 	free(dp);
 }
 
-/** perform exponential backoff on the timout */
+/** perform exponential backoff on the timeout */
 static void
 expon_timeout_backoff(struct replay_runtime* runtime)
 {
@@ -900,6 +900,7 @@ outside_network_create(struct comm_base* base, size_t bufsize,
 	struct ub_randstate* ATTR_UNUSED(rnd), 
 	int ATTR_UNUSED(use_caps_for_id), int* ATTR_UNUSED(availports),
 	int ATTR_UNUSED(numavailports), size_t ATTR_UNUSED(unwanted_threshold),
+	int ATTR_UNUSED(outgoing_tcp_mss),
 	void (*unwanted_action)(void*), void* ATTR_UNUSED(unwanted_param),
 	int ATTR_UNUSED(do_udp), void* ATTR_UNUSED(sslctx),
 	int ATTR_UNUSED(delayclose), struct dt_env* ATTR_UNUSED(dtenv))

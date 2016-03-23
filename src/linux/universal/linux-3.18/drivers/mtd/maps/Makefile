@@ -62,11 +62,12 @@ obj-$(CONFIG_SOC_MT7620_OPENWRT)	+= nvram_kernel.o
 obj-$(CONFIG_MACH_HORNET)	+= nvram_kernel.o
 obj-$(CONFIG_MACH_GW2388)	+= nvram_kernel.o
 obj-$(CONFIG_ARCH_MVEBU)	+= nvram_kernel.o
+obj-$(CONFIG_ARCH_QCOM)		+= nvram_kernel.o
 obj-$(CONFIG_LANTIQ)		+= nvram_kernel.o
 obj-$(CONFIG_ARCH_IXP4XX)	+= nvram_kernel.o
 obj-$(CONFIG_X86)		+= nvram_kernel_x86.o
 obj-$(CONFIG_MACH_KS8695_VSOPENRISC) += nvram_kernel_x86.o
-obj-$(CONFIG_SOC_IMX6Q) += nvram_kernel_x86.o
+obj-$(CONFIG_SOC_IMX6Q) 	+= nvram_kernel.o
 ifeq ($(CONFIG_TL_WDR4900_V1),y)
 obj-$(CONFIG_PPC)		+= nvram_kernel.o
 else

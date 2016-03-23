@@ -98,7 +98,7 @@ ifeq ($(ARCH),armeb)
 export COPTS:=$(BASEOPT) -pipe -mtune=xscale -march=armv5te -Wa,-mcpu=xscale -mno-thumb-interwork -mno-thumb 
 endif
 ifeq ($(ARCH),arm)
-export COPTS:=$(BASEOPT) -pipe -march=armv6k -mtune=mpcore -mfloat-abi=hard -mfpu=vfp -fno-caller-saves
+export COPTS:=$(BASEOPT) -pipe -march=armv6k -mtune=mpcore -mfloat-abi=hard -mfpu=vfp -fno-caller-saves -fno-plt
 #-D_FILE_OFFSET_BITS=64
 endif
 ifeq ($(ARCH),mips)
@@ -155,6 +155,8 @@ kernelsource:
 	cd $(LINUXDIR)/../ && tar -xvjf $(LINUXDIR)/../linux-$(KERNELVERSION).tar.bz2
 	cd $(LINUXDIR)/../ && ./patch $(KERNELVERSION)
 
+include kernel-features.mk
+
 kernel:
 	# Also build kernel
 ifeq ($(CONFIG_LAGUNA),y)
@@ -164,11 +166,7 @@ else
 	cp $(LINUXDIR)/.config_laguna$(DD_LAGUNA_NOSMP) $(LINUXDIR)/.config
 endif
 endif
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP is not set" >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 	$(MAKE) -C $(LINUXDIR) oldconfig	
 
 	$(MAKE) -j 4 -C $(LINUXDIR) uImage  CROSS_COMPILE="ccache $(ARCH)-linux-uclibc-"
@@ -234,7 +232,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)
@@ -264,7 +262,7 @@ endif
 ifneq ($(CONFIG_MUSL),y)
 	cp ${shell $(ARCH)-linux-gcc -print-file-name=ld-uclibc.so.0} $(ARCH)-uclibc/target/lib/ld-uClibc.so.0 
 else
-	cd $(ARCH)-uclibc/target/lib && ln -sf libc.so ld-musl-arm.so.1
+	cd $(ARCH)-uclibc/target/lib && ln -sf libc.so ld-musl-armhf.so.1
 endif
 	cp ${shell $(ARCH)-linux-gcc -print-file-name=libgcc_s.so.1} $(ARCH)-uclibc/target/lib/libgcc_s.so.1 
 ifeq ($(CONFIG_LIBDL),y)

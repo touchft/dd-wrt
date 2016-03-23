@@ -74,7 +74,7 @@ export BASEOPT:=-Os
 
 export ARCH:= mipsel
 export ARCHITECTURE:= broadcom
-export COPTS:=$(BASEOPT) -pipe -mips32r2 -mtune=74kc -mdspr2 -fno-caller-saves  -msoft-float  -mno-branch-likely
+export COPTS:=$(BASEOPT) -pipe -mips32r2 -mtune=74kc -mdspr2 -fno-caller-saves  -msoft-float  -mno-branch-likely -fno-plt
 export CC := ccache $(CROSS_COMPILE)gcc
 export CXX := ccache $(CROSS_COMPILE)g++
 export AR := $(CROSS_COMPILE)ar
@@ -86,7 +86,7 @@ export STRIP := @true
 export SIZE := $(CROSS_COMPILE)size
 export MIPS16_OPT:= -minterlink-mips16 -mips16
 
-export CFLAGS :=$(BASEOPT) -pipe -mips32r2 -mtune=74kc -mdspr2 -fno-caller-saves  -msoft-float  -mno-branch-likely 
+export CFLAGS :=$(BASEOPT) -pipe -mips32r2 -mtune=74kc -mdspr2 -fno-caller-saves  -msoft-float  -mno-branch-likely -fno-plt
 export LDFLAGS := 
 
 #
@@ -124,6 +124,7 @@ strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
 all: install_headers build_date clean_target $(obj-y) $(LINUXDIR)/.config kernel
 
+include kernel-features.mk
 
 kernel:
 	# Also build kernel
@@ -151,11 +152,7 @@ ifeq ($(CONFIG_NOAC),y)
 	cp $(LINUXDIR)/.config_std_noac $(LINUXDIR)/.config
 endif
 
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP" is not set >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 ifeq ($(CONFIG_V25),y)
 	echo CONFIG_V25=y >> $(LINUXDIR)/.config
 else
@@ -173,9 +170,7 @@ else
 	echo "# CONFIG_NVRAM_64K" is not set >> $(LINUXDIR)/.config
 endif
 endif
-ifeq ($(CONFIG_IPETH),y)
-	sed -i 's/\# CONFIG_USB_IPHETH is not set/CONFIG_USB_IPHETH=m/g' $(LINUXDIR)/.config
-endif
+
 #ifeq ($(CONFIG_REGISTER),y)
 #	cp $(LINUXDIR)/.config_register $(LINUXDIR)/.config
 #endif
@@ -328,7 +323,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)
@@ -817,6 +812,8 @@ ifeq ($(CONFIG_NOAC),y)
 	cp dd-wrt.bin.chk $(ARCH)-uclibc/dd-wrt.v24-K3_WNR3500v2_VC.chk
 	./netgear/packet -k $(ARCH)-uclibc/dd-wrt.v24-K3.trx -f netgear/emptyfile -b netgear/comp-wnr3500L.txt -ok kernel_image -oall dd-wrt.bin -or rootfs_image -i netgear/ambitCfg-wnr3500.h && \
 	cp dd-wrt.bin.chk $(ARCH)-uclibc/dd-wrt.v24-K3_WNR3500L.chk
+	./netgear/packet -k $(ARCH)-uclibc/dd-wrt.v24-K3.trx -f netgear/emptyfile -b netgear/comp-wnr3500Lv2.txt -ok kernel_image -oall dd-wrt.bin -or rootfs_image -i netgear/ambitCfg-wnr3500lv2.h && \
+	cp dd-wrt.bin.chk $(ARCH)-uclibc/dd-wrt.v24-K3_WNR3500Lv2.chk
 	./netgear/packet -k $(ARCH)-uclibc/dd-wrt.v24-K3.trx -f netgear/emptyfile -b netgear/comp-wnr3500U.txt -ok kernel_image -oall dd-wrt.bin -or rootfs_image -i netgear/ambitCfg-wnr3500.h && \
 	cp dd-wrt.bin.chk $(ARCH)-uclibc/dd-wrt.v24-K3_WNR3500U.chk
 	./netgear/packet -k $(ARCH)-uclibc/dd-wrt.v24-K3.trx -f netgear/emptyfile -b netgear/comp-wnr2000v2.txt -ok kernel_image -oall dd-wrt.bin -or rootfs_image -i netgear/ambitCfg-wnr2000v2.h && \

@@ -87,6 +87,8 @@ void start_sysinit(void)
 	eval("swconfig", "dev", "eth0", "set", "enable_vlan", "1");
 	eval("swconfig", "dev", "eth0", "vlan", "1", "set", "ports", "0t 2 3 4 5");
 	eval("swconfig", "dev", "eth0", "vlan", "2", "set", "ports", "0t 1");
+#elif defined (HAVE_JWAP606)
+	// nothing
 #elif defined (HAVE_DAP3662)
 	eval("swconfig", "dev", "eth0", "set", "reset", "1");
 	eval("swconfig", "dev", "eth0", "set", "enable_vlan", "0");
@@ -158,27 +160,27 @@ void start_sysinit(void)
 	}
 #endif
 
-#if defined(HAVE_MMS344) && !defined(HAVE_DIR862)
+#ifndef HAVE_JWAP606
 	eval("ifconfig", "eth0", "up");
+#if defined(HAVE_MMS344) && !defined(HAVE_DIR862)
 	eval("vconfig", "set_name_type", "VLAN_PLUS_VID_NO_PAD");
 	eval("vconfig", "add", "eth0", "1");
 	eval("vconfig", "add", "eth0", "2");
 #elif defined(HAVE_WZR450HP2) || defined(HAVE_WDR3500)
-	eval("ifconfig", "eth0", "up");
 	eval("ifconfig", "eth1", "up");
 #else
-	eval("ifconfig", "eth0", "up");
 	eval("vconfig", "set_name_type", "VLAN_PLUS_VID_NO_PAD");
 	eval("vconfig", "add", "eth0", "1");
 	eval("vconfig", "add", "eth0", "2");
+#endif
 #endif
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW))) {
 		char eabuf[32];
 
 		strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
 		ioctl(s, SIOCGIFHWADDR, &ifr);
-		nvram_set("et0macaddr", ether_etoa((unsigned char *)ifr.ifr_hwaddr.sa_data, eabuf));
-		nvram_set("et0macaddr_safe", ether_etoa((unsigned char *)ifr.ifr_hwaddr.sa_data, eabuf));
+		nvram_set("et0macaddr", ether_etoa((char *)ifr.ifr_hwaddr.sa_data, eabuf));
+		nvram_set("et0macaddr_safe", ether_etoa((char *)ifr.ifr_hwaddr.sa_data, eabuf));
 		close(s);
 	}
 #if defined(HAVE_ARCHERC7) || defined(HAVE_DIR859) || defined(HAVE_DAP3662)
@@ -195,7 +197,7 @@ void start_sysinit(void)
 
 			strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
 			ioctl(s, SIOCGIFHWADDR, &ifr);
-			mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+			mac = (char *)ifr.ifr_hwaddr.sa_data;
 			close(s);
 		}
 		for (i = 0; i < 6; i++)
@@ -221,7 +223,7 @@ void start_sysinit(void)
 
 			strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
 			ioctl(s, SIOCGIFHWADDR, &ifr);
-			mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+			mac = (char *)ifr.ifr_hwaddr.sa_data;
 			close(s);
 		}
 		for (i = 0; i < 6; i++)
@@ -238,16 +240,11 @@ void start_sysinit(void)
 
 	detect_wireless_devices();
 
-	led_control(LED_POWER, LED_ON);
-	led_control(LED_SES, LED_OFF);
-	led_control(LED_SES2, LED_OFF);
-	led_control(LED_DIAG, LED_OFF);
-	led_control(LED_BRIDGE, LED_OFF);
-	led_control(LED_WLAN0, LED_OFF);
-	led_control(LED_WLAN1, LED_OFF);
-	led_control(LED_CONNECTED, LED_OFF);
 #ifdef HAVE_WNDR3700V4
 	setWirelessLed(0, 11);
+	setWirelessLed(1, 14);
+#elif  HAVE_JWAP606
+//      setWirelessLed(0, 14);
 	setWirelessLed(1, 14);
 #elif  HAVE_WR1043V2
 	setWirelessLed(0, 12);

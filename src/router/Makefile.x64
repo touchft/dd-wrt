@@ -102,10 +102,10 @@ ifeq ($(ARCH),mips)
 export COPTS:=$(BASEOPT) -pipe -mips32 -mtune=mips32 -funit-at-a-time 
 endif
 ifeq ($(ARCH),i386)
-export COPTS:=$(BASEOPT) -pipe -march=i486 -mtune=i486 -fno-caller-saves 
+export COPTS:=$(BASEOPT) -pipe -march=i486 -mtune=i486 -fno-caller-saves -fno-plt
 endif
 ifeq ($(ARCH),x86_64)
-export COPTS:=$(BASEOPT) -pipe -fno-caller-saves -D_FILE_OFFSET_BITS=64
+export COPTS:=$(BASEOPT) -pipe -fno-caller-saves -D_FILE_OFFSET_BITS=64 -fno-plt
 endif
 
 export CC := ccache $(CROSS_COMPILE)gcc
@@ -152,6 +152,7 @@ build_date:
 	echo "#define BUILD_DATE \"$(shell date +%D)\"" > ../../opt/build.h 
 	echo "CONFIG_MUSL=y" >> .config 
 
+include kernel-features.mk
 
 kernel:
         # Also build kernel
@@ -160,14 +161,7 @@ kernel:
 ifeq ($(CONFIG_ISOFS),y)
 	cp $(LINUXDIR)/.config_isofs $(LINUXDIR)/.config
 endif
-ifeq ($(CONFIG_IPETH),y)
-	sed -i 's/\# CONFIG_USB_IPHETH is not set/CONFIG_USB_IPHETH=m/g' $(LINUXDIR)/.config
-endif
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP is not set" >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 	make -C $(LINUXDIR) oldconfig
 	if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
 	    $(MAKE) -j 4 -C $(LINUXDIR) bzImage CROSS_COMPILE="ccache $(ARCH)-linux-uclibc-" ; \
@@ -245,7 +239,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean madwifi_mimo-clean busybox-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)

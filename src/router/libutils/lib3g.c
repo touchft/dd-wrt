@@ -53,7 +53,7 @@ static int scanFor(int Vendor, int Product)
 		fscanf(check, "%d", &count);
 		pclose(check);
 		if (count > 0) {
-			eval("umount /tmp/usb");
+			eval("umount","/tmp/usb");
 			return 1;
 		}
 	}
@@ -453,10 +453,10 @@ static struct DEVICES devicelist[] = {
 	{0x05c6, 0x6500, "option", "2", "0", 0 | GENERIC, NULL, "Venus VT-80n (modem)"},	//
 	{0x05c6, 0x6503, "option", "0", "0", 0, &modeswitch_std_eject, "Generic Qualcomm (cdrom)"},	//
 	{0x05c6, 0x9000, "option", "1", "2", 0 | QMI, NULL, "SIMCom SIM5218 (modem)"},	//
-//      {0x05c6, 0x9011, "qcserial", "1", "2", 0 | QMI, NULL, "Qualcomm HS-USB (modem)"},       //
-//      {0x05c6, 0x9024, "qcserial", "0", "0", 0, &modeswitch_std_eject, "ASB TL131 TD-LTE (cdrom)"},   //
+	{0x05c6, 0x9011, "qcserial", "1", "2", 0 | QMI, NULL, "Qualcomm HS-USB (modem)"},	//
+	{0x05c6, 0x9024, "qcserial", "0", "0", 0, &modeswitch_std_eject, "ASB TL131 TD-LTE (cdrom)"},	//
 	{0x05c6, 0x9025, "option", "2", "0", 0 | QMI, NULL, "ASB TL131 TD-LTE (modem)"},	//
-//      {0x05c6, 0x9046, "qcserial", "1", "2", 0 | QMI, NULL, "Qualcomm HS-USB (modem)"},       //
+	{0x05c6, 0x9046, "qcserial", "1", "2", 0 | QMI, NULL, "Qualcomm HS-USB (modem)"},	//
 	{0x05c6, 0xf000, "option", "0", "0", 0, &modeswitch_std_eject, "Generic Qualcomm (cdrom)"},	//
 
 // D-Link
@@ -669,7 +669,7 @@ static struct DEVICES devicelist[] = {
 	{0x1199, 0x6839, "sierra", "3", "4", 1, NULL, "Sierra MC8781 (modem)"},	//
 	{0x1199, 0x683a, "sierra", "3", "4", 1, NULL, "Sierra MC8785 (modem)"},	//
 	{0x1199, 0x683b, "sierra", "3", "4", 1, NULL, "Sierra MC8785 Composite (modem)"},	//
-	{0x1199, 0x683c, "sierra", "3", "3", 1 | QMI, &reset_mc, "Sierra MC8790 Composite"},	//
+	{0x1199, 0x683c, "sierra", "3", "3", 1, NULL, "Sierra MC8790 Composite"},	//
 	{0x1199, 0x683d, "sierra", "3", "3", 1, &reset_mc, "Sierra MC8791 Composite"},	//
 	{0x1199, 0x683e, "sierra", "3", "3", 1, &reset_mc, "Sierra MC8790"},	//
 	{0x1199, 0x6850, "sierra", "2", "0", 1, NULL, "Sierra AC880 (modem)"},	//
@@ -1466,7 +1466,7 @@ char *get3GControlDevice(void)
 		devicecount++;
 	}
 	//not found, use generic implementation (all drivers)
-	insmod("cdc-acm cdc-wdm usbnet qmi_wwan usbserial usb_wwan sierra option");
+	insmod("cdc-acm cdc-wdm usbnet qmi_wwan usbserial usb_wwan sierra option zte_ev qcserial");
 	return ttsdevice;
 }
 

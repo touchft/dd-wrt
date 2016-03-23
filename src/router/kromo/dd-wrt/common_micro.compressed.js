@@ -905,7 +905,7 @@ if(_5a.elements[i].className=="no-check"){
 }else{
 if(_5a.elements[i].type=="text"){
 if(chars=invalidTextValue(_5a.elements[i].value)){
-alert(errmsg.err112.replace("<invchars>",chars).replace("<fieldname>",getInputLabel("input",elements[i].name)));
+alert(errmsg.err112.replace("<invchars>",chars).replace("<fieldname>",getInputLabel("input",_5a.elements[i].name)));
 _5a.elements[i].style.border="solid 2px #f00";
 _5a.elements[i].focus();
 return false;
@@ -964,7 +964,7 @@ var _60=700;
 var _61=400;
 var tab=new Array();
 tab=mac.split(mac.substr(2,1));
-var win=window.open("http://standards.ieee.org/cgi-bin/ouisearch?"+tab[0]+"-"+tab[1]+"-"+tab[2],"DDWRT_OUI_Search","top="+top+",left="+_5f+",width="+_60+",height="+_61+",resizable=yes,scrollbars=yes,statusbar=no");
+var win=window.open("http://oidsearch.s.dd-wrt.com/search/"+tab[0]+':'+tab[1]+':'+tab[2],"DDWRT_OUI_Search","top="+top+",left="+_5f+",width="+_60+",height="+_61+",resizable=yes,scrollbars=yes,statusbar=no");
 addEvent(window,"unload",function(){
 if(!win.closed){
 win.close();

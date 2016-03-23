@@ -66,7 +66,7 @@ export BASEOPT:=-Os
 
 #ifeq ($(ARCH),arm)
 #export COPTS:=$(BASEOPT) -pipe -march=armv7-a -mtune=cortex-a9  -mfloat-abi=soft -fpic
-export COPTS:=$(BASEOPT) -pipe -march=armv7-a -mcpu=cortex-a9 -mtune=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp -fno-caller-saves 
+export COPTS:=$(BASEOPT) -pipe -march=armv7-a -mcpu=cortex-a9 -mtune=cortex-a9 -mfpu=vfpv3-d16 -mfloat-abi=softfp -fno-caller-saves -fno-plt
 #endif
 
 
@@ -109,15 +109,11 @@ build_date:
 	echo "#define BUILD_DATE \"$(shell date +%D)\"" > ../../opt/build.h 
 	echo "CONFIG_MUSL=y" >> .config 
 
+include kernel-features.mk
 
 kernel:
 	cp $(LINUXDIR)/.config_mvebu $(LINUXDIR)/.config
-
-ifeq ($(CONFIG_EOP_TUNNEL),y)
-	echo CONFIG_NET_ETHERIP=m >> $(LINUXDIR)/.config
-else
-	echo "# CONFIG_NET_ETHERIP is not set" >> $(LINUXDIR)/.config
-endif
+	$(kernelfeatures)
 	$(MAKE) -C $(LINUXDIR) oldconfig	
 
 	if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -213,7 +209,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean nvram-clean madwifi-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)
@@ -484,10 +480,15 @@ endif
 	cat $(LINUXDIR)/arch/arm/boot/dts//armada-385-linksys-cobra.dtb >> $(ARCH)-uclibc/zImage-armada-385-linksys-cobra;
 	mkimage -A arm -O linux -T kernel -a 0x00008000 -C none -e 0x00008000 -n 'DD-WRT' -d $(ARCH)-uclibc/zImage-armada-385-linksys-cobra $(ARCH)-uclibc/uImage-armada-385-linksys-cobra;
 
+	cp $(ARCH)-uclibc/zImage $(ARCH)-uclibc/zImage-armada-385-linksys-shelby;
+	cat $(LINUXDIR)/arch/arm/boot/dts//armada-385-linksys-shelby.dtb >> $(ARCH)-uclibc/zImage-armada-385-linksys-shelby;
+	mkimage -A arm -O linux -T kernel -a 0x00008000 -C none -e 0x00008000 -n 'DD-WRT' -d $(ARCH)-uclibc/zImage-armada-385-linksys-shelby $(ARCH)-uclibc/uImage-armada-385-linksys-shelby;
+
 
 	cp $(ARCH)-uclibc/uImage-armada-xp-linksys-mamba $(ARCH)-uclibc/mvebu/ddwrt-mvebu-uImage-armada-xp-linksys-mamba;
 	cp $(ARCH)-uclibc/uImage-armada-385-linksys-caiman $(ARCH)-uclibc/mvebu/ddwrt-mvebu-uImage-armada-385-linksys-caiman;
 	cp $(ARCH)-uclibc/uImage-armada-385-linksys-cobra $(ARCH)-uclibc/mvebu/ddwrt-mvebu-uImage-armada-385-linksys-cobra;
+	cp $(ARCH)-uclibc/uImage-armada-385-linksys-shelby $(ARCH)-uclibc/mvebu/ddwrt-mvebu-uImage-armada-385-linksys-shelby;
 	
 	#tools/wrt1900ac/mksquashfs4 $(TARGETDIR) $(ARCH)-uclibc/root.squashfs -nopad -noappend -root-owned -comp xz -Xpreset 9 -Xe -Xlc 0 -Xlp 2 -Xpb 2 -Xbcj arm -b 256k -p '/dev d 755 0 0' -p '/dev/console c 600 0 0 5 1' -processors 1
 	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(ARCH)-uclibc/target $(ARCH)-uclibc/root.squashfs -noappend -root-owned -le
@@ -505,10 +506,12 @@ endif
 	( dd if=$(ARCH)-uclibc/uImage-armada-xp-linksys-mamba bs=3072k conv=sync; dd if=$(ARCH)-uclibc/root.squashfs.ubi bs=2048 conv=sync; ) > $(ARCH)-uclibc/ddwrt-mvebu-armada-xp-mamba-squashfs-factory.img
 	( dd if=$(ARCH)-uclibc/uImage-armada-385-linksys-caiman bs=3072k conv=sync; dd if=$(ARCH)-uclibc/root.squashfs.ubi bs=2048 conv=sync; ) > $(ARCH)-uclibc/ddwrt-mvebu-armada-385-caiman-squashfs-factory.img
 	( dd if=$(ARCH)-uclibc/uImage-armada-385-linksys-cobra bs=3072k conv=sync; dd if=$(ARCH)-uclibc/root.squashfs.ubi bs=2048 conv=sync; ) > $(ARCH)-uclibc/ddwrt-mvebu-armada-385-cobra-squashfs-factory.img
+	( dd if=$(ARCH)-uclibc/uImage-armada-385-linksys-shelby bs=3072k conv=sync; dd if=$(ARCH)-uclibc/root.squashfs.ubi bs=2048 conv=sync; ) > $(ARCH)-uclibc/ddwrt-mvebu-armada-385-shelby-squashfs-factory.img
 
 	./tools/trx_n -m 40000000 -o $(ARCH)-uclibc/ddwrt-linksys-wrt1900ac.bin $(ARCH)-uclibc/ddwrt-mvebu-armada-xp-mamba-squashfs-factory.img
 	./tools/trx_n -m 40000000 -o $(ARCH)-uclibc/ddwrt-linksys-wrt1900acv2.bin $(ARCH)-uclibc/ddwrt-mvebu-armada-385-cobra-squashfs-factory.img
 	./tools/trx_n -m 40000000 -o $(ARCH)-uclibc/ddwrt-linksys-wrt1200ac.bin $(ARCH)-uclibc/ddwrt-mvebu-armada-385-caiman-squashfs-factory.img
+	./tools/trx_n -m 40000000 -o $(ARCH)-uclibc/ddwrt-linksys-wrt1900acs.bin $(ARCH)-uclibc/ddwrt-mvebu-armada-385-shelby-squashfs-factory.img
 	
 
 

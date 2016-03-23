@@ -142,6 +142,18 @@ void start_sysinit(void)
 	eval("ifconfig", "eth0", "up");
 	eval("ifconfig", "eth1", "up");
 
+	struct ifreq ifr;
+	int s;
+
+	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW))) {
+		char eabuf[32];
+
+		strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
+		ioctl(s, SIOCGIFHWADDR, &ifr);
+		nvram_set("et0macaddr", ether_etoa((char *)ifr.ifr_hwaddr.sa_data, eabuf));
+		nvram_set("et0macaddr_safe", ether_etoa((char *)ifr.ifr_hwaddr.sa_data, eabuf));
+		close(s);
+	}
 #ifdef HAVE_WR741V4
 #ifdef HAVE_SWCONFIG
 #ifndef HAVE_WR710
@@ -168,11 +180,16 @@ void start_sysinit(void)
 	eval("swconfig", "dev", "eth1", "vlan", "1", "set", "ports", "0 1 2 3 4");
 	eval("swconfig", "dev", "eth1", "set", "apply");
 
-	setEthLED(17, "eth1");
 	setSwitchLED(13, 0x02);
 	setSwitchLED(14, 0x04);
 	setSwitchLED(15, 0x08);
 	setSwitchLED(16, 0x10);
+	set_gpio(17, 1);
+	set_gpio(13, 1);
+	set_gpio(14, 1);
+	set_gpio(15, 1);
+	set_gpio(16, 1);
+	setEthLED(17, "eth0");
 #elif HAVE_CARAMBOLA
 	eval("swconfig", "dev", "switch0", "set", "reset", "1");
 	eval("swconfig", "dev", "switch0", "set", "enable_vlan", "1");
@@ -183,6 +200,7 @@ void start_sysinit(void)
 	eval("vconfig", "add", "eth1", "1");
 	eval("vconfig", "add", "eth1", "2");
 #endif
+#ifndef HAVE_ERC
 #ifdef HAVE_HORNET
 #ifdef HAVE_ONNET
 	setEthLED(13, "eth0");
@@ -192,36 +210,25 @@ void start_sysinit(void)
 	setEthLED(13, "eth1");
 #endif
 #endif
-	struct ifreq ifr;
-	int s;
-
-	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW))) {
-		char eabuf[32];
-
-		strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
-		ioctl(s, SIOCGIFHWADDR, &ifr);
-		nvram_set("et0macaddr", ether_etoa((unsigned char *)ifr.ifr_hwaddr.sa_data, eabuf));
-		nvram_set("et0macaddr_safe", ether_etoa((unsigned char *)ifr.ifr_hwaddr.sa_data, eabuf));
-		close(s);
-	}
+#endif
 
 	detect_wireless_devices();
 
-	led_control(LED_POWER, LED_ON);
-	led_control(LED_SES, LED_OFF);
-	led_control(LED_SES2, LED_OFF);
-	led_control(LED_DIAG, LED_OFF);
-	led_control(LED_BRIDGE, LED_OFF);
-	led_control(LED_WLAN0, LED_OFF);
-	led_control(LED_WLAN1, LED_OFF);
-	led_control(LED_CONNECTED, LED_OFF);
+#ifndef HAVE_ERC
 	setWirelessLed(0, 0);
-
+#else
+	setWirelessLed(0, 1);
+#endif
 	/*
 	 * Set a sane date 
 	 */
 	stime(&tm);
 	nvram_set("wl0_ifname", "ath0");
+
+#ifdef HAVE_ERC
+	start_drivers();
+	eval("/usr/sbin/interay");
+#endif
 
 	return;
 	cprintf("done\n");

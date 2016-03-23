@@ -21,9 +21,11 @@
 #include <string.h>
 #include <errno.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <typedefs.h>
 #include <shutils.h>
+#include <utils.h>
 #include <bcmnvram.h>
 
 static int usb_process_path(char *path, int host, char *part, char *devpath);
@@ -162,8 +164,17 @@ void start_hotplug_usb(void)
 }
 
 /* Optimize performance */
-#define READ_AHEAD_KB_BUF	1024
+#define READ_AHEAD_KB_BUF	"1024"
 #define READ_AHEAD_CONF	"/sys/block/%s/queue/read_ahead_kb"
+
+static void writestr(char *path, char *a)
+{
+	int fd = open(path, O_WRONLY);
+	if (fd < 0)
+		return;
+	write(fd, a, strlen(a));
+	close(fd);
+}
 
 static void optimize_block_device(char *devname)
 {
@@ -174,7 +185,7 @@ static void optimize_block_device(char *devname)
 	memset(blkdev, 0, sizeof(blkdev));
 	strncpy(blkdev, devname, 3);
 	sprintf(read_ahead_conf, READ_AHEAD_CONF, blkdev);
-	sysprintf("echo %d > %s", READ_AHEAD_KB_BUF, read_ahead_conf);
+	writestr(read_ahead_conf, READ_AHEAD_KB_BUF);
 }
 
 //Kernel 3.x
@@ -273,14 +284,11 @@ static bool usb_load_modules(char *fs)
 		insmod("mbcache ext2");
 	}
 #ifdef HAVE_USB_ADVANCED
-	if (!strcmp(fs, "ext3")) {
-		insmod("mbcache ext2 jbd ext3");
-	}
-	if (!strcmp(fs, "ext4")) {
-		insmod("crc16 mbcache jbd2 ext4");
+	if (!strcmp(fs, "ext3") || !strcmp(fs, "ext4")) {
+		insmod("crc16 mbcache ext2 jbd jbd2 ext3 ext4");
 	}
 	if (!strcmp(fs, "btrfs")) {
-		insmod("libcrc32c lzo_compress lzo_decompress raid6_pq xor btrfs");
+		insmod("libcrc32c crc32c_generic lzo_compress lzo_decompress raid6_pq xor-neon xor btrfs");
 	}
 	if (!strcmp(fs, "hfs")) {
 		insmod("nls_base nls_cp932 nls_cp936 nls_cp950 nls_cp437 nls_iso8859-1 nls_iso8859-2 nls_utf8");
@@ -436,15 +444,15 @@ static int usb_process_path(char *path, int host, char *part, char *devpath)
 	}
 
 	if (strcmp(fs, "swap"))	//don't create dir as swap is not mounted to a dir
-		sysprintf("mkdir -p %s", mount_point);
+		eval("mkdir", "-p", mount_point);
 
 	if (host != -1) {
 		/* at the time the kernel (2.6) notifies us, the part entries are gone thus we map devicepath to mounted partitions so we can umount them later on */
 		sprintf(dev_dir, "/tmp/%s", devpath);
-		sysprintf("mkdir -p %s", dev_dir);
+		eval("mkdir", "-p", dev_dir);
 		// e.g. /mnt /tmp/devices/pci0000:00/0000:00:04.1/usb1/1-1/1-1:1.0/part1
-		sprintf(sym_link, "%s %s/%s", mount_point, dev_dir, part);
-		sysprintf("ln -s %s", sym_link);
+		sprintf(sym_link, "%s/%s", dev_dir, part);
+		eval("ln", "-s", mount_point, sym_link);
 	}
 
 	/* lets start mounting */
@@ -480,6 +488,10 @@ static int usb_process_path(char *path, int host, char *part, char *devpath)
 	/* avoid out of memory problems which could lead to broken wireless, so we limit the minimum free ram everything else can be used for fs cache */
 #ifdef HAVE_80211AC
 	writeproc("/proc/sys/vm/min_free_kbytes", "16384");
+#elif HAVE_MVEBU
+	writeproc("/proc/sys/vm/min_free_kbytes", "65536");
+#elif HAVE_IPQ806X
+	writeproc("/proc/sys/vm/min_free_kbytes", "65536");
 #else
 	writeproc("/proc/sys/vm/min_free_kbytes", "4096");
 #endif

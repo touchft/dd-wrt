@@ -38,7 +38,7 @@ void start_dhcp6c(void)
 	FILE *fp, *fpc;
 	char *buf;
 	int prefix_len;
-	unsigned char ea[ETHER_ADDR_LEN];
+	char ea[ETHER_ADDR_LEN];
 	unsigned long iaid = 0;
 	struct {
 		uint16 type;
@@ -49,11 +49,10 @@ void start_dhcp6c(void)
 	if (!nvram_match("ipv6_typ", "ipv6pd"))
 		return;
 	nvram_unset("ipv6_prefix");
-	fprintf(stderr, "dhcp6c start\n");
 	char mac[18];
 	getLANMac(mac);
 	if (strlen(mac) == 0)
-		strcpy(mac,nvram_safe_get("et0macaddr_safe"));
+		strcpy(mac, nvram_safe_get("et0macaddr_safe"));
 
 	if (ether_atoe(mac, ea)) {
 		/* Generate IAID from the last 7 digits of WAN MAC */
@@ -111,7 +110,7 @@ void start_dhcp6s(void)
 	char *buf;
 	char ipv6_dns_str[1024] = "";
 
-	unsigned char ea[ETHER_ADDR_LEN];
+	char ea[ETHER_ADDR_LEN];
 	unsigned long iaid = 0;
 	struct {
 		uint16 type;
@@ -123,8 +122,6 @@ void start_dhcp6s(void)
 		return;
 	if (!nvram_match("dhcp6s_enable", "1"))
 		return;
-
-	fprintf(stderr, "Start dhcp6s start\n");
 
 	if (ether_atoe(nvram_safe_get("lan_hwaddr"), ea)) {
 		/* Generate IAID from the last 7 digits of WAN MAC */

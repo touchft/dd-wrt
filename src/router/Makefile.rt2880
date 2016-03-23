@@ -89,7 +89,7 @@ export BASEOPT:=-Os
 #export ARCH:= mipsel
 
 ifeq ($(ARCH),mipsel)
-export COPTS:=$(BASEOPT) -pipe -mips32r2 -mtune=24kec -fno-caller-saves -mno-branch-likely
+export COPTS:=$(BASEOPT) -pipe -mips32r2 -mtune=24kec -fno-caller-saves -mno-branch-likely -fno-plt
 endif
 ifeq ($(ARCH),arm)
 export COPTS:=$(BASEOPT) -march=armv4 -pipe -funit-at-a-time -msoft-float
@@ -141,6 +141,7 @@ all: install_headers  build_date clean_target $(obj-y) $(LINUXDIR)/.config kerne
 build_date:
 	echo "#define BUILD_DATE \"$(shell date +%D)\"" > ../../opt/build.h 
 
+include kernel-features.mk
 
 kernel:
 	# Also build kernel
@@ -226,6 +227,8 @@ endif
 ifeq ($(CONFIG_DIR810L),y)
 	cp $(LINUXDIR)/.config_dir810l $(LINUXDIR)/.config
 endif
+	$(kernelfeatures)
+
 	$(MAKE) -C $(LINUXDIR) oldconfig	
 
 	if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
@@ -381,7 +384,7 @@ realclean: $(obj-clean)
 	-rm -f $(ARCH)-uclibc/*
 
 	
-clean: rc-clean httpd-clean services-clean shared-clean libutils-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean
+clean: rc-clean httpd-clean services-clean shared-clean libutils-clean madwifi-clean madwifi_mimo-clean busybox-clean dnsmasq-clean iptables-clean pppd-clean iproute2-clean
 	rm -f .config.old .config.cmd
 	#umount $(TARGETDIR)
 	rm -rf $(INSTALLDIR)

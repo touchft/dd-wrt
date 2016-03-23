@@ -28,7 +28,7 @@ obj-$(CONFIG_IPTABLES) += iptables
 obj-$(CONFIG_LIBIPT) += iptables
 obj-$(CONFIG_IPSEC) += ipsec
 obj-$(CONFIG_LIBPCAP) += libpcap
-obj-$(CONFIG_WIVIZ) += wiviz2
+obj-$(CONFIG_WIVIZ) += libpcap wiviz2
 obj-$(CONFIG_TCPDUMP) += tcpdump
 obj-$(CONFIG_KISMETDRONE) += kismet-devel
 obj-$(CONFIG_NETSTATNAT) += netstatnat
@@ -38,6 +38,7 @@ obj-$(CONFIG_HOSTAPD) += hostapd
 obj-$(CONFIG_NETCONF) += netconf
 obj-$(CONFIG_NTP) += ntpclient
 obj-$(CONFIG_HTPDATE) += htpdate
+obj-$(CONFIG_IPVS) += libnltiny ipvsadm
 obj-$(CONFIG_PPP) += ppp
 # AhMan March 19 2005
 obj-$(CONFIG_PPPOE) += pppoe
@@ -85,15 +86,16 @@ obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_EOU) += eou
 obj-$(CONFIG_OPENSER) += openser
 obj-$(CONFIG_MILKFISH) += milkfish
-obj-$(CONFIG_MC) += glib20 unrar mc
+obj-$(CONFIG_MC) += libffi glib20 unrar mc
 obj-$(CONFIG_NOCAT) += nocat
 obj-$(CONFIG_RTPPROXY) += rtpproxy
-obj-$(CONFIG_ZABBIX) += glib20 zabbix
+obj-$(CONFIG_ZABBIX) += libffi glib20 zabbix
 obj-$(CONFIG_SAMBA) += samba
 obj-$(CONFIG_SAMBA3) += samba3
 obj-$(CONFIG_SAMBA3) += jansson
 obj-$(CONFIG_MINIDLNA) += jansson
 obj-$(CONFIG_NTFS3G) += ntfs-3g
+obj-$(CONFIG_SPEEDTEST_CLI) += curl speedtest-cli
 obj-$(CONFIG_RADAUTH) += radauth
 ifneq ($(CONFIG_FONERA),y)
 ifneq ($(CONFIG_XSCALE),y)
@@ -110,7 +112,7 @@ obj-$(CONFIG_ROBOCFG) += robocfg
 obj-$(CONFIG_MULTICAST) += igmp-proxy
 obj-$(CONFIG_UDPXY) += udpxy
 obj-$(CONFIG_SKYTRON) += skytron
-obj-$(CONFIG_OPENVPN) += openvpn
+obj-$(CONFIG_OPENVPN) += lzo openvpn
 obj-$(CONFIG_OLSRD) += olsrd
 obj-$(CONFIG_BATMANADV) += batman-adv
 obj-$(CONFIG_FDISK) += fdisk
@@ -126,11 +128,10 @@ endif
 endif
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_MTR) += mtr
-
-
-
 obj-$(CONFIG_PCIUTILS) += pciutils
-obj-$(CONFIG_E2FSPROGS) += e2fsprogs
+obj-$(CONFIG_E2FSPROGS) += lzo e2fsprogs
+obj-$(CONFIG_XFSPROGS) += util-linux xfsprogs 
+obj-$(CONFIG_BTRFSPROGS) += util-linux btrfsprogs
 obj-$(CONFIG_HTTPREDIRECT) += http-redirect
 obj-$(CONFIG_SMTPREDIRECT) += smtp-redirect
 obj-$(CONFIG_SPUTNIK_APD) += sputnik
@@ -166,6 +167,7 @@ obj-$(CONFIG_NTPD) += ntpd
 obj-$(CONFIG_GPSD) += gpsd
 obj-$(CONFIG_PHP5) += php5
 obj-$(CONFIG_FREERADIUS) += freeradius
+obj-$(CONFIG_FREERADIUS3) += talloc freeradius3
 #obj-$(CONFIG_EAD) += ead
 
 obj-$(CONFIG_SCDP) += scdp
@@ -225,7 +227,7 @@ obj-$(CONFIG_UBOOTENV) += ubootenv
 obj-$(CONFIG_DSL_CPE_CONTROL) += dsl_cpe_control atm
 obj-$(CONFIG_OPENDPI) += opendpi
 obj-$(CONFIG_LLTD) += lltd
-obj-$(CONFIG_USBIP) += glib20 usbip
+obj-$(CONFIG_USBIP) += libffi glib20 usbip
 #obj-$(CONFIG_XTA) += xtables-addons
 obj-$(CONFIG_SNORT) += libnfnetlink libnetfilter_queue libdnet daq pcre snort
 obj-$(CONFIG_LAGUNA) += gsp_updater
@@ -244,13 +246,14 @@ obj-$(CONFIG_LINKS) += links
 obj-$(CONFIG_SOFTFLOWD) += softflowd
 obj-$(CONFIG_LIGHTTPD) += pcre lighttpd
 obj-$(CONFIG_NEXTMEDIAEXTRA) += nextmediaextra
-obj-$(CONFIG_LIBQMI) += glib20 libqmi
+obj-$(CONFIG_LIBQMI) += libffi glib20 libqmi
 obj-$(CONFIG_UQMI) += json-c libubox uqmi
 obj-$(CONFIG_MTDUTILS) += mtd-utils
+obj-$(CONFIG_UBIUTILS) += ubi-utils
 obj-$(CONFIG_STRONGSWAN) += gmp strongswan sqlite
 obj-$(CONFIG_PRIVOXY) += zlib pcre privoxy
 obj-$(CONFIG_VENTANA) += kobs-ng
-obj-$(CONFIG_WEBSERVER) += glib20 libxml2 libmcrypt lighttpd curl php5 
+obj-$(CONFIG_WEBSERVER) += libffi glib20 libxml2 libmcrypt lighttpd curl php5 
 obj-$(CONFIG_TRANSMISSION) += libevent curl transmission
 obj-$(CONFIG_CLOUD4WI) += curl
 obj-$(CONFIG_UNIWIP) += uniwip_gpio
@@ -290,16 +293,15 @@ configs-checkout:
 
 configs-update:
 #	svn commit -m "faster hand optimized mksquashfs-lzma tool" $(LINUXDIR)
+	rm -rf $(LINUXDIR)/../linux-4.0
+	rm -rf $(LINUXDIR)/../linux-4.1
 	svn update $(LINUXDIR)
 	svn update $(LINUXDIR)/../linux-3.2
 	svn update $(LINUXDIR)/../linux-3.5
-	svn update $(LINUXDIR)/../linux-3.9
 	svn update $(LINUXDIR)/../linux-3.10
-	svn update $(LINUXDIR)/../linux-3.13
-	svn update $(LINUXDIR)/../linux-3.14
 	svn update $(LINUXDIR)/../linux-3.18
-	svn update $(LINUXDIR)/../linux-3.19
-	rm -rf $(LINUXDIR)/../linux-3.19
+	svn update $(LINUXDIR)/../linux-4.0
+	svn update $(LINUXDIR)/../linux-4.1
 	svn update $(TOP)/private
 	$(TOP)/private/symlinks.sh $(TOP) $(LINUXDIR)
 

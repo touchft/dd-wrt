@@ -35,7 +35,7 @@ struct nvram_param router_defaults[] = {
  * DD-WRT addition (loaned from radauth) 
  */
 
-#ifndef HAVE_MADWIFI 
+#ifndef HAVE_MADWIFI
 u_int ieee80211_mhz2ieee(u_int freq)
 {
 	if (freq == 2484)
@@ -221,7 +221,7 @@ int getchannels(unsigned int *list, char *ifname)
 int wifi_getchannel(char *ifname)
 {
 	struct iwreq wrq;
-	double freq;
+	int freq;
 	int channel;
 
 	(void)memset(&wrq, 0, sizeof(struct iwreq));
@@ -230,15 +230,14 @@ int wifi_getchannel(char *ifname)
 	closesocket();
 	int i;
 
-	freq = (float)wrq.u.freq.m;
-	if (freq < 1000.0f) {
+	freq = wrq.u.freq.m;
+	if (freq < 1000) {
 		return (int)freq;
 	}
 
-	freq = (double)wrq.u.freq.m;
 	for (i = 0; i < wrq.u.freq.e; i++)
-		freq *= 10.0;
-	freq /= 1000000.0;
+		freq *= 10;
+	freq /= 1000000;
 	cprintf("wifi channel %f\n", freq);
 	channel = ieee80211_mhz2ieee(freq);
 
@@ -248,7 +247,7 @@ int wifi_getchannel(char *ifname)
 struct wifi_interface *wifi_getfreq(char *ifname)
 {
 	struct iwreq wrq;
-	double freq;
+	int freq;
 
 	(void)memset(&wrq, 0, sizeof(struct iwreq));
 	strncpy(wrq.ifr_name, ifname, IFNAMSIZ);
@@ -257,22 +256,22 @@ struct wifi_interface *wifi_getfreq(char *ifname)
 
 	int i;
 
-	freq = (float)wrq.u.freq.m;
+	freq = wrq.u.freq.m;
 	struct wifi_interface *interface = (struct wifi_interface *)malloc(sizeof(struct wifi_interface));
-	if (freq < 1000.0f) {
-		interface->freq = ieee80211_ieee2mhz((unsigned int)freq);
+	if (freq < 1000) {
+		interface->freq = ieee80211_ieee2mhz(freq);
 		return interface;
 	}
-	freq = (double)wrq.u.freq.m;
+	freq = wrq.u.freq.m;
 	for (i = 0; i < wrq.u.freq.e; i++)
-		freq *= 10.0;
-	freq /= 1000000.0;
-	interface->freq = (int)freq;
+		freq *= 10;
+	freq /= 1000000;
+	interface->freq = freq;
 	cprintf("wifi channel %f\n", freq);
 	return interface;
 }
 
-float wifi_getrate(char *ifname)
+int wifi_getrate(char *ifname)
 {
 	struct iwreq wrq;
 
@@ -1124,47 +1123,63 @@ int do80211priv(const char *ifname, int op, void *data, size_t len)
 	return iwr.u.data.length;
 }
 
-#define MEGA	1e6
+#define MEGA	1000000
 
-float wifi_getrate(char *ifname)
+int wifi_getrate(char *ifname)
 {
-#ifdef HAVE_ATH9K && !defined(HAVE_MVEBU)
+#if defined(HAVE_ATH9K) && !defined(HAVE_MVEBU)
 	if (is_ath9k(ifname)) {
 		if (nvram_nmatch("b-only", "%s_net_mode", ifname))
-			return 11.0 * MEGA;
+			return 11 * MEGA;
 		if (nvram_nmatch("g-only", "%s_net_mode", ifname))
-			return 54.0 * MEGA;
+			return 54 * MEGA;
 		if (nvram_nmatch("a-only", "%s_net_mode", ifname))
-			return 54.0 * MEGA;
+			return 54 * MEGA;
 		if (nvram_nmatch("bg-mixed", "%s_net_mode", ifname))
-			return 54.0 * MEGA;
+			return 54 * MEGA;
 		struct wifi_interface *interface = mac80211_get_interface(ifname);
 		if (!interface)
-		    return -1;
-		float rate;
+			return -1;
+		int rate;
+		int sgi = has_shortgi(ifname);
 		switch (interface->width) {
 		case 2:
-			rate = 54.0 * MEGA;
-		break;
+			rate = 54 * MEGA;
+			break;
 		case 5:
-			rate = 54.0 * MEGA / 4;
-		break;
+			rate = 54 * MEGA / 4;
+			break;
 		case 10:
-			rate = 54.0 * MEGA / 2;
-		break;
+			rate = 54 * MEGA / 2;
+			break;
 		case 20:
-			rate = (float)(HTTxRate20_400(mac80211_get_maxmcs(ifname))) * MEGA;
-		break;
+			if (sgi)
+				rate = (HTTxRate20_400(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+			else
+				rate = (HTTxRate20_800(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+			break;
 		case 40:
-			rate = (float)(HTTxRate40_400(mac80211_get_maxmcs(ifname))) * MEGA;
-		break;
+			if (sgi)
+				rate = (HTTxRate40_400(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+			else
+				rate = (HTTxRate40_800(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+
+			break;
 		case 80:
+			if (sgi)
+				rate = (HTTxRate80_400(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+			else
+				rate = (HTTxRate80_800(mac80211_get_maxmcs(ifname))) * MEGA / 1000;
+			break;
 		case 8080:
 		case 160:
-			rate = (float)(HTTxRate40_400(mac80211_get_maxmcs(ifname))) * MEGA;	// dummy, no qam256 info yet available
-		break;
+			if (sgi)
+				rate = (HTTxRate40_400(mac80211_get_maxmcs(ifname))) * MEGA / 1000;	// dummy, no qam256 info yet available
+			else
+				rate = (HTTxRate40_800(mac80211_get_maxmcs(ifname))) * MEGA / 1000;	// dummy, no qam256 info yet available
+			break;
 		default:
-			rate = 54.0 * MEGA;
+			rate = 54 * MEGA;
 		}
 		free(interface);
 		return rate;
@@ -1195,7 +1210,7 @@ int iw_mwatt2dbm(int in)
 	int res = 0;
 
 	/*
-	 * Split integral and floating part to avoid accumulating rounding errors 
+    	 * Split integral and floating part to avoid accumulating rounding errors 
 	 */
 	while (fin > 10.0) {
 		res += 10;
@@ -1596,7 +1611,7 @@ int wifi_getchannel(char *ifname)
 	if (is_ath9k(ifname)) {
 		struct wifi_interface *interface = mac80211_get_interface(ifname);
 		if (!interface)
-		    return -1;
+			return -1;
 		int f = interface->freq;
 		free(interface);
 		return ieee80211_mhz2ieee(f);
@@ -1611,10 +1626,10 @@ int wifi_getchannel(char *ifname)
 	closesocket();
 	int i;
 
-	double freq = (double)wrq.u.freq.m;
+	int freq = wrq.u.freq.m;
 	for (i = 0; i < wrq.u.freq.e; i++)
-		freq *= 10.0;
-	freq /= 1000000.0;
+		freq *= 10;
+	freq /= 1000000;
 	cprintf("wifi channel %f\n", freq);
 	channel = ieee80211_mhz2ieee(freq);
 
@@ -1637,13 +1652,13 @@ struct wifi_interface *wifi_getfreq(char *ifname)
 	closesocket();
 
 	int i;
-	double freq = (double)wrq.u.freq.m;
+	int freq = wrq.u.freq.m;
 	for (i = 0; i < wrq.u.freq.e; i++)
-		freq *= 10.0;
-	freq /= 1000000.0;
+		freq *= 10;
+	freq /= 1000000;
 	struct wifi_interface *interface;
 	interface = (struct wifi_interface *)malloc(sizeof(struct wifi_interface));
-	interface->freq = (int)freq;
+	interface->freq = freq;
 	cprintf("wifi channel %f\n", freq);
 	return interface;
 }
@@ -2107,7 +2122,7 @@ int getUptime(char *ifname, unsigned char *mac)
 		si = (struct ieee80211req_sta_info *)cp;
 		if (!memcmp(&si->isi_macaddr[0], mac, 6)) {
 			close(s);
-			int uptime = 0; //si->isi_uptime;
+			int uptime = 0;	//si->isi_uptime;
 
 			free(buf);
 			return uptime;
@@ -2417,7 +2432,7 @@ int getrxantenna(char *ifname)
 void radio_off(int idx)
 {
 	if (pidof("nas") > 0 || pidof("wrt-radauth") > 0) {
-		eval("stopservice", "nas");
+		eval("stopservice", "nas", "-f");
 	}
 	if (idx != -1) {
 		fprintf(stderr, "radio_off(%d) interface: %s\n", idx, get_wl_instance_name(idx));
@@ -2443,18 +2458,22 @@ void radio_off(int idx)
 	}
 	//fix ticket 2991
 	eval("startservice", "nas", "-f");
+
 }
 
 void radio_on(int idx)
 {
 	if (pidof("nas") > 0 || pidof("wrt-radauth") > 0) {
-		eval("stopservice", "nas");
+		eval("stopservice", "nas", "-f");
 	}
 	if (idx != -1) {
-		if (!nvram_nmatch("disabled", "wl%d_net_mode", idx))
+
+		if (!nvram_nmatch("disabled", "wl%d_net_mode", idx)) {
 			fprintf(stderr, "radio_on(%d) interface: %s \n", idx, get_wl_instance_name(idx));
-		eval("wl", "-i", get_wl_instance_name(idx), "radio", "off");
-		eval("wl", "-i", get_wl_instance_name(idx), "radio", "on");
+			eval("wl", "-i", get_wl_instance_name(idx), "radio", "off");
+			eval("wl", "-i", get_wl_instance_name(idx), "radio", "on");
+		}
+
 		if (idx == 0)
 			led_control(LED_WLAN0, LED_ON);
 		if (idx == 1)

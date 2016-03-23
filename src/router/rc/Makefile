@@ -19,20 +19,10 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include.v23 -Wall -I$(SRCBASE)/
 endif
 CFLAGS  += -I$(TOP)/iptables/include -I$(TOP)/iptables/include/libipq -I$(TOP)/libnet/include -DL_ENDIAN -DLIBNET_LIL_ENDIAN -DLIB1X_LIL_ENDIAN -I$(LINUXDIR)/brcm/shared/bcmwifi/include -I$(LINUXDIR)/brcm/$(ARCH)/shared/bcmwifi/include 
 CFLAGS  += $(COPTS)
-ifeq ($(ARCH),i386)
-LDFLAGS	+= -L$(TOP)/nvram -I$(LINUXDIR) -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/libutils -lutils -ldl
-CFLAGS += -I$(LINUXDIR)
-else
 LDFLAGS	+= -L$(TOP)/nvram -I$(LINUXDIR) -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/libutils -lutils -ldl
 CFLAGS += -I$(LINUXDIR) -I$(TOP)/libutils -fPIC  -D_GNU_SOURCE
 
-#ifneq ($(ARCHITECTURE),lsx)
 CFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
-#endif
-#ifeq ($(ARCHITECTURE),lsx)
-#CFLAGS += -fomit-frame-pointer 
-#endif
-endif
 CFLAGS += $(MIPS16_OPT) 
 
 cc-option = $(shell if $(CC) $(CFLAGS) $(1) -S -o /dev/null -xc /dev/null \
@@ -49,9 +39,9 @@ INITCFLAGS = $(call cc-option,-Os -ffunction-sections -fdata-sections,)
 
 #LDFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
 
-OBJS := rc.o servicemanager.o event.o
+OBJS := rc.o event.o
 #http.o stats.o
-OBJS += watchdog.o services.o mtd_main.o
+OBJS += watchdog.o
 
 #ifdef $(CONFIG_DIST)
 CFLAGS += -DDIST=\"$(CONFIG_DIST)\"
@@ -59,11 +49,6 @@ CFLAGS += -DDIST=\"$(CONFIG_DIST)\"
 
 CFLAGS += -DARCHITECTURE="\"$(ARCHITECTURE)\""
 
-ifneq ($(CONFIG_RB500),y)
-ifneq ($(CONFIG_X86),y)
-OBJS += mtd.o
-endif
-endif
 ifneq ($(CONFIG_TW6600),y)
 ifeq ($(CONFIG_DIST),"micro")
 CFLAGS += -DHAVE_MICRO
@@ -221,6 +206,9 @@ endif
 ifeq ($(CONFIG_MVEBU),y)
 CFLAGS += -DHAVE_MVEBU
 endif
+ifeq ($(CONFIG_IPQ806X),y)
+CFLAGS += -DHAVE_IPQ806X
+endif
 ifeq ($(CONFIG_WDR2543),y)
 CFLAGS += -DHAVE_WDR2543
 endif
@@ -352,6 +340,9 @@ endif
 ifeq ($(CONFIG_AOSS),y)
   CFLAGS += -DHAVE_AOSS
 endif
+ifeq ($(CONFIG_WPS),y)
+  CFLAGS += -DHAVE_WPS
+endif
 ifeq ($(CONFIG_IAS),y)
   CFLAGS += -DHAVE_IAS
 endif
@@ -462,6 +453,9 @@ CFLAGS += -DHAVE_ALFAAP94
 endif
 ifeq ($(CONFIG_JWAP003),y)
 CFLAGS += -DHAVE_JWAP003
+endif
+ifeq ($(CONFIG_JWAP606),y)
+CFLAGS += -DHAVE_JWAP606
 endif
 ifeq ($(CONFIG_WR941),y)
 CFLAGS += -DHAVE_WR941
@@ -764,7 +758,6 @@ CFLAGS += -DHAVE_AQOS
 
 ifeq ($(CONFIG_PPTPD),y)
 CFLAGS += -DHAVE_PPTPD
-OBJS += pptpd.o
 endif
 ifeq ($(CONFIG_PPTP),y)
 CFLAGS += -DHAVE_PPTP
@@ -919,6 +912,9 @@ endif
 ifeq ($(CONFIG_TMK),y)
 CFLAGS += -DHAVE_TMK
 endif
+ifeq ($(CONFIG_IPVS),y)
+CFLAGS += -DHAVE_IPVS
+endif
 ifeq ($(CONFIG_BKM),y)
 CFLAGS += -DHAVE_BKM
 endif
@@ -1065,6 +1061,9 @@ ifneq ($(CONFIG_MICRO),y)
 endif
 ifeq ($(CONFIG_ADM5120),y)
 	cd $(INSTALLDIR)/sbin && ln -sf rc watchdog
+endif
+ifeq ($(CONFIG_NORTHSTAR),y)
+	cd $(INSTALLDIR)/sbin && ln -sf rc rtkswitch
 endif
 ifeq ($(CONFIG_PPPOESERVER),y)
 	cd $(INSTALLDIR)/sbin && ln -sf rc addpppoeconnected

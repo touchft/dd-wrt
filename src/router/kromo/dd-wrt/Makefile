@@ -27,9 +27,9 @@ endif
 	rm -f $(INSTALLDIR)/www/Log_outgoing.asp
 endif
 
-ifneq ($(CONFIG_AOSS),y)
-	rm -f $(INSTALLDIR)/www/AOSS.asp
-endif
+#ifneq ($(CONFIG_AOSS),y)
+#	rm -f $(INSTALLDIR)/www/AOSS.asp
+#endif
 
 ifneq ($(CONFIG_SPOTPASS),y)
 	rm -f $(INSTALLDIR)/www/Nintendo.asp
@@ -173,12 +173,28 @@ ifeq ($(CONFIG_UNFY),y)
 	cp buffalo/help/* $(INSTALLDIR)/www/help
 endif
 
+#ifeq ($(CONFIG_IDEXX),y)
+#	mkdir $(INSTALLDIR)/www/style/buffalo
+#	cp buffalo/style.css $(INSTALLDIR)/www/style/buffalo
+#	cp buffalo/favicon.ico $(INSTALLDIR)/www/images
+#	cp buffalo/images/* $(INSTALLDIR)/www/images
+#	cp buffalo/help/* $(INSTALLDIR)/www/help
+#endif
 ifeq ($(CONFIG_IDEXX),y)
-	mkdir $(INSTALLDIR)/www/style/buffalo
-	cp buffalo/style.css $(INSTALLDIR)/www/style/buffalo
-	cp buffalo/favicon.ico $(INSTALLDIR)/www/images
-	cp buffalo/images/* $(INSTALLDIR)/www/images
-	cp buffalo/help/* $(INSTALLDIR)/www/help
+	mkdir $(INSTALLDIR)/www/style/idexx
+	cp idexx/style.css $(INSTALLDIR)/www/style/idexx
+#	cp idexx/favicon.ico $(INSTALLDIR)/www/images
+	cp idexx/AOSS.asp $(INSTALLDIR)/www/
+	cp idexx/images/* $(INSTALLDIR)/www/images
+	cp idexx/help/* $(INSTALLDIR)/www/help
+	cp -fa idexx/files/* $(INSTALLDIR) || true
+ifeq ($(CONFIG_IDEXX_WORLD),y)
+	echo "iw reg set 00" >> $(INSTALLDIR)/etc/config/idexx.startup
+	echo "startservice configurewifi" >> $(INSTALLDIR)/etc/config/idexx.startup
+else
+	echo "iw reg set US" >> $(INSTALLDIR)/etc/config/idexx.startup
+	echo "startservice configurewifi" >> $(INSTALLDIR)/etc/config/idexx.startup
+endif
 endif
 
 ifeq ($(CONFIG_AXTEL),y)
@@ -485,6 +501,7 @@ ifeq ($(CONFIG_ONNET),y)
   endif
 	rm -f $(INSTALLDIR)/www/images/favicon.ico
 	ls -l $(INSTALLDIR)/www/help/
+#	cp -fa onnet/files/* $(INSTALLDIR) || true
 endif
 
 ifeq ($(CONFIG_GLAUCO),y)
@@ -868,7 +885,9 @@ ifneq ($(CONFIG_DANUBE),y)
 	rm -f $(INSTALLDIR)/www/index_dhcp.asp
 endif
 ifneq ($(CONFIG_AOSS),y)
+ifneq ($(CONFIG_WPS),y)
 	rm -f $(INSTALLDIR)/www/AOSS.asp
+endif
 endif
 ifneq ($(CONFIG_BUFFALO),y)
 	rm -f $(INSTALLDIR)/www/SetupAssistant.asp

@@ -562,6 +562,9 @@ static char *s_conditions[] = {
 #ifdef HAVE_USBIP
 	"USBIP",
 #endif
+#ifdef HAVE_80211AC
+	"80211AC",
+#endif
 	NULL
 };
 
@@ -744,7 +747,7 @@ void ej_nvram_list(webs_t wp, int argc, char_t ** argv)
  */
 int get_dns_ip(char *name, int which, int count)
 {
-	static char word[256];
+	char word[256];
 	char *next;
 	int ip;
 	char *list = nvram_safe_get(name);
@@ -1276,7 +1279,7 @@ void ej_get_syskernel(webs_t wp, int argc, char_t ** argv)
 void ej_get_totaltraff(webs_t wp, int argc, char_t ** argv)
 {
 	char *type;
-	static char wanface[32];
+	char wanface[32];
 	char line[256];
 	unsigned long long rcvd, sent, megcounti, megcounto;
 	FILE *in;
@@ -1350,7 +1353,7 @@ void ej_show_bandwidth(webs_t wp, int argc, char_t ** argv)
 	char var[80];
 	char eths[256];
 	char eths2[256];
-	static char bword[256];
+	char bword[256];
 	char bufferif[512];
 #ifdef HAVE_ATH9K
 	glob_t globbuf;
@@ -1371,7 +1374,7 @@ void ej_show_bandwidth(webs_t wp, int argc, char_t ** argv)
 	sprintf(eths, "%s %s", eths, eths2);
 
 	memset(bufferif, 0, 256);
-	getIfList(bufferif, "br");
+	getIfListB(bufferif, NULL, 1);
 
 #ifndef HAVE_MADWIFI
 	int cnt = get_wl_instances();
@@ -1568,10 +1571,14 @@ void ej_do_menu(webs_t wp, int argc, char_t ** argv)
 	static char menuname_t[8][14][32] = {
 		{"setup", "setupbasic", "setupipv6", "setupddns", "setupmacclone", "setuprouting", "setupvlan", "networking", "setupeop", "", "", "", ""},	//
 		{"wireless", "wirelessBasic", "wirelessSuperchannel", "wimax", "wirelessRadius", "wirelessSecurity",	//
-#ifdef HAVE_WPS
+#if defined(HAVE_AOSS) && defined(HAVE_WPS)
 		 "wirelessAossWPS",
-#else
+#elif defined(HAVE_AOSS) && !defined(HAVE_WPS)
 		 "wirelessAoss",
+#elif !defined(HAVE_AOSS) && defined(HAVE_WPS)
+		 "wirelessWPS",
+#else
+		 "",		// place holder
 #endif
 		 "wirelessMac", "wirelessAdvanced", "wirelessWds", "", "", ""},	//
 		{"services", "servicesServices", "servicesRadius", "servicesPppoesrv", "servicesPptp", "servicesUSB", "servicesNAS", "servicesHotspot", "servicesNintendo", "servicesMilkfish", "servicesPrivoxy", "servicesLighttpd", ""},	//
@@ -1581,8 +1588,8 @@ void ej_do_menu(webs_t wp, int argc, char_t ** argv)
 		{"admin", "adminManagement", "adminAlive", "adminDiag", "adminWol", "adminFactory", "adminUpgrade", "adminBackup", "", "", "", "", ""},	//
 		{"statu", "statuRouter", "statuInet", "statuLAN", "statuWLAN", "statuSputnik", "statuVPN", "statuBand", "statuSyslog", "statuSysInfo", "statuActivate", "statuMyPage", "statuGpio", "statuCWMP"}	//
 	};
-	static char menu[8][13][32];
-	static char menuname[8][14][32];
+	char menu[8][13][32];
+	char menuname[8][14][32];
 	memcpy(menu, menu_t, 8 * 13 * 32);
 	memcpy(menuname, menuname_t, 8 * 14 * 32);
 #if HAVE_ERC
@@ -1725,7 +1732,12 @@ void ej_do_menu(webs_t wp, int argc, char_t ** argv)
 					// WiMAX
 					j++;
 #endif
-#ifndef HAVE_AOSS
+#if !defined(HAVE_AOSS) && !defined(HAVE_WPS)
+				if (!strcmp(menu[i][j], "AOSS.asp"))	// jump over
+					// AOSS
+					j++;
+#endif
+#if defined(HAVE_WPS) && !defined(HAVE_IDEXX)
 				if (!strcmp(menu[i][j], "AOSS.asp"))	// jump over
 					// AOSS
 					j++;
@@ -2219,46 +2231,87 @@ void ej_make_time_list(webs_t wp, int argc, char_t ** argv)
 
 void ej_get_service_state(webs_t wp, int argc, char_t ** argv)
 {
-      websWrite(wp, "<div class=\"setting\"><div class=\"label\">%s</div>", live_translate("service.dhcp_legend2"));
-      if(nvram_match("lan_proto", "dhcp")){
+	websWrite(wp, "<div class=\"setting\"><div class=\"label\">%s</div>", live_translate("service.dhcp_legend2"));
+	if (nvram_match("lan_proto", "dhcp")) {
 		websWrite(wp, "%s", live_translate("share.enabled"));
-		if(pidof("dnsmasq") > 0 || pidof("udhcpd") > 0){
+		if (pidof("dnsmasq") > 0 || pidof("udhcpd") > 0) {
 			websWrite(wp, " - %s", live_translate("diag.running"));
 		} else {
 			websWrite(wp, " - %s", live_translate("diag.stopped"));
 		}
-      } else {
+	} else {
 		websWrite(wp, "%s", live_translate("share.disabled"));
-      }
-      websWrite(wp, "&nbsp;</div>");
+	}
+	websWrite(wp, "&nbsp;</div>");
 
 #ifdef HAVE_SAMBA_SERVER
-      websWrite(wp, "<div class=\"setting\"><div class=\"label\">%s</div>", live_translate("service.samba3_srv"));
-      if(nvram_match("samba3_enable", "1")){
+	websWrite(wp, "<div class=\"setting\"><div class=\"label\">%s</div>", live_translate("service.samba3_srv"));
+	if (nvram_match("samba3_enable", "1")) {
 		websWrite(wp, "%s", live_translate("share.enabled"));
-		if(pidof("smbd") > 0){
+		if (pidof("smbd") > 0) {
 			websWrite(wp, " - %s", live_translate("diag.running"));
 		} else {
 			websWrite(wp, " - %s", live_translate("diag.stopped"));
 		}
-      } else {
+	} else {
 		websWrite(wp, "%s", live_translate("share.disabled"));
-      }
-      websWrite(wp, "&nbsp;</div>");
+	}
+	websWrite(wp, "&nbsp;</div>");
 #endif
 }
 
-void ej_get_cputemp(webs_t wp, int argc, char_t ** argv)
-{
 #ifdef HAVE_MVEBU
-	FILE *tempfp;
-	tempfp = fopen("/sys/class/hwmon/hwmon1/temp1_input", "rb");
+static void show_temp(webs_t wp, int mon, int input, char *fmt)
+{
+	char sysfs[64];
+	snprintf(sysfs, 64, "/sys/class/hwmon/hwmon%d/temp%d_input", mon, input);
+	FILE *tempfp = fopen(sysfs, "rb");
 	if (tempfp) {
 		int cpu;
 		fscanf(tempfp, "%d", &cpu);
 		fclose(tempfp);
-		websWrite(wp, "%d &#176;C ", cpu / 1000);
+		websWrite(wp, fmt, cpu / 1000, (cpu % 1000) / 100);
 	}
+}
+#endif
+
+#ifdef HAVE_IPQ806X
+static void show_temp(webs_t wp, char *fmt)
+{
+	char sysfs[64];
+	int mon;
+	int temperature = 0;
+	for (mon = 0; mon < 11; mon++) {
+		snprintf(sysfs, 64, "/sys/class/hwmon/hwmon%d/temp1_input", mon);
+		FILE *tempfp = fopen(sysfs, "rb");
+		if (tempfp) {
+			int cpu;
+			fscanf(tempfp, "%d", &cpu);
+			fclose(tempfp);
+			temperature += (cpu * 100);
+		}
+	}
+	temperature /= mon;
+	websWrite(wp, fmt, temperature / 100, temperature % 100);
+}
+#endif
+
+void ej_get_cputemp(webs_t wp, int argc, char_t ** argv)
+{
+#ifdef HAVE_MVEBU
+	if (getRouterBrand() == ROUTER_WRT_1900AC) {
+		show_temp(wp, 1, 1, "CPU %d.%d &#176;C");
+		show_temp(wp, 2, 1, " / WL0 %d.%d &#176;C");
+		show_temp(wp, 2, 2, " / WL1 %d.%d &#176;C");
+	} else {
+		show_temp(wp, 0, 1, "CPU %d.%d &#176;C");
+		show_temp(wp, 1, 1, " / WL0 %d.%d &#176;C");
+		show_temp(wp, 1, 2, " / WL1 %d.%d &#176;C");
+	}
+	return;
+#endif
+#ifdef HAVE_IPQ806X
+	show_temp(wp, "CPU %d.%d &#176;C");
 	return;
 #endif
 #ifdef HAVE_BCMMODERN
@@ -2271,10 +2324,10 @@ void ej_get_cputemp(webs_t wp, int argc, char_t ** argv)
 	unsigned int *ret_int = NULL;
 	unsigned int *ret_int2 = NULL;
 	unsigned int *ret_int3 = NULL;
-	static double tempavg_24 = 0.000;
-	static double tempavg_50 = 0.000;
-	static double tempavg_502 = 0.000;
-	static double tempavg_max = 0.000;
+	static int tempavg_24 = 0;
+	static int tempavg_50 = 0;
+	static int tempavg_502 = 0;
+	static int tempavg_max = 0;
 	int no2 = 0, no5 = 0, no52 = 0;
 	strcpy(buf, "phy_tempsense");
 	strcpy(buf2, "phy_tempsense");
@@ -2295,49 +2348,49 @@ void ej_get_cputemp(webs_t wp, int argc, char_t ** argv)
 	ret_int3 = (unsigned int *)buf3;
 	if (tempcount == -3) {
 		tempcount++;
-		tempavg_24 = *ret_int;
-		tempavg_50 = *ret_int2;
-		tempavg_502 = *ret_int3;
-		if (tempavg_24 < 0.0)
-			tempavg_24 = 0.0;
-		if (tempavg_50 < 0.0)
-			tempavg_50 = 0.0;
-		if (tempavg_502 < 0.0)
-			tempavg_502 = 0.0;
+		tempavg_24 = *ret_int * 10;
+		tempavg_50 = *ret_int2 * 10;
+		tempavg_502 = *ret_int3 * 10;
+		if (tempavg_24 < 0)
+			tempavg_24 = 0;
+		if (tempavg_50 < 0)
+			tempavg_50 = 0;
+		if (tempavg_502 < 0)
+			tempavg_502 = 0;
 	} else {
-		if (tempavg_24 < 10.0 && *ret_int > 0.0)
-			tempavg_24 = *ret_int;
-		if (tempavg_50 < 10.0 && *ret_int2 > 0.0)
-			tempavg_50 = *ret_int2;
-		if (tempavg_502 < 10.0 && *ret_int3 > 0.0)
-			tempavg_502 = *ret_int3;
-		if (tempavg_24 > 200.0 && *ret_int > 0.0)
-			tempavg_24 = *ret_int;
-		if (tempavg_50 > 200.0 && *ret_int2 > 0.0)
-			tempavg_50 = *ret_int2;
-		if (tempavg_502 > 200.0 && *ret_int3 > 0.0)
-			tempavg_502 = *ret_int3;
+		if (tempavg_24 < 100 && *ret_int > 0)
+			tempavg_24 = *ret_int * 10;
+		if (tempavg_50 < 100 && *ret_int2 > 0)
+			tempavg_50 = *ret_int2 * 10;
+		if (tempavg_502 < 100 && *ret_int3 > 0)
+			tempavg_502 = *ret_int3 * 10;
+		if (tempavg_24 > 2000 && *ret_int > 0)
+			tempavg_24 = *ret_int * 10;
+		if (tempavg_50 > 2000 && *ret_int2 > 0)
+			tempavg_50 = *ret_int2 * 10;
+		if (tempavg_502 > 2000 && *ret_int3 > 0)
+			tempavg_502 = *ret_int3 * 10;
 
-		tempavg_24 = (tempavg_24 * 4 + *ret_int) / 5;
-		tempavg_50 = (tempavg_50 * 4 + *ret_int2) / 5;
+		tempavg_24 = (tempavg_24 * 4 + (*ret_int * 10)) / 5;
+		tempavg_50 = (tempavg_50 * 4 + (*ret_int2 * 10)) / 5;
 	}
 #else
 	ret_int = (unsigned int *)buf;
 
 	if (tempcount == -2) {
 		tempcount++;
-		tempavg_24 = *ret_int;
-		if (tempavg_24 < 0.0)
-			tempavg_24 = 0.0;
+		tempavg_24 = *ret_int * 10;
+		if (tempavg_24 < 0)
+			tempavg_24 = 0;
 	} else {
-		if (tempavg_24 < 10.0 && *ret_int > 0.0)
-			tempavg_24 = *ret_int;
-		if (tempavg_24 > 200.0 && *ret_int > 0.0)
-			tempavg_24 = *ret_int;
-		tempavg_24 = (tempavg_24 * 4 + *ret_int) / 5;
+		if (tempavg_24 < 100 && *ret_int > 0)
+			tempavg_24 = *ret_int * 10;
+		if (tempavg_24 > 2000 && *ret_int > 0)
+			tempavg_24 = *ret_int * 10;
+		tempavg_24 = (tempavg_24 * 4 + (*ret_int * 10)) / 5;
 	}
 	int t50 = rpc_get_temperature();
-	tempavg_50 = t50 / 1000000.0f;
+	tempavg_50 = t50 / 100000;
 #endif
 
 	int cputemp = 1;
@@ -2354,21 +2407,28 @@ void ej_get_cputemp(webs_t wp, int argc, char_t ** argv)
 		websWrite(wp, "%s", live_translate("status_router.notavail"));	// no 
 	else if (no2) {
 #ifdef HAVE_QTN
-		websWrite(wp, "WL1 %4.2f &#176;C", tempavg_50);
+		websWrite(wp, "WL1 %d.%d &#176;C", tempavg_50 / 10, tempavg_50 % 10);
 #else
-		websWrite(wp, "WL1 %4.2f &#176;C", tempavg_50 * 0.5 + 20.0);
+		tempavg_50 = (tempavg_50 / 2) + 200;
+		websWrite(wp, "WL1 %d.%d &#176;C", tempavg_50 / 10, tempavg_50 % 10);
 #endif
-	} else if (no5)
-		websWrite(wp, "WL0 %4.2f &#176;C", tempavg_24 * 0.5 + 20.0);
-	else
+	} else if (no5) {
+		tempavg_24 = (tempavg_24 / 2) + 200;
+		websWrite(wp, "WL0 %d.%d &#176;C", tempavg_24 / 10, tempavg_24 % 10);
+	} else {
 #ifdef HAVE_QTN
-		websWrite(wp, "WL0 %4.2f &#176;C / WL1 %4.2f &#176;C", tempavg_24 * 0.5 + 20.0, tempavg_50);
+		tempavg_24 = (tempavg_24 / 2) + 200;
+		websWrite(wp, "WL0 %d.%d &#176;C / WL1 %d.%d &#176;C", tempavg_24 / 10, tempavg_24 % 10, tempavg_50 / 10, tempavg_50 % 10);
 #else
-		websWrite(wp, "WL0 %4.2f &#176;C / WL1 %4.2f &#176;C", tempavg_24 * 0.5 + 20.0, tempavg_50 * 0.5 + 20.0);
+		tempavg_24 = (tempavg_24 / 2) + 200;
+		tempavg_50 = (tempavg_50 / 2) + 200;
+		websWrite(wp, "WL0 %d.%d &#176;C / WL1 %d.%d &#176;C", tempavg_24 / 10, tempavg_24 % 10, tempavg_50 / 10, tempavg_50 % 10);
 #endif
-	if (!no52)
-		websWrite(wp, " / WL2 %4.2f &#176;C", tempavg_502 * 0.5 + 20.0);
-
+	}
+	if (!no52) {
+		tempavg_502 = (tempavg_502 / 2) + 200;
+		websWrite(wp, " / WL2 %d.%d &#176;C", tempavg_502 / 10, tempavg_502 % 10);
+	}
 #else
 #ifdef HAVE_GATEWORX
 	int TEMP_MUL = 100;
@@ -2510,36 +2570,37 @@ void ej_show_voltage(webs_t wp, int argc, char_t ** argv)
 static void showencstatus(webs_t wp, char *prefix)
 {
 	char akm[64];
-
+	char *enc = NULL;
 	sprintf(akm, "%s_akm", prefix);
 	websWrite(wp, "<div class=\"setting\">\n");
 	websWrite(wp, "<div class=\"label\"><script type=\"text/javascript\">Capture(share.encrypt)</script>&nbsp;-&nbsp;<script type=\"text/javascript\">Capture(share.intrface)</script>&nbsp;%s</div>\n", prefix);
 	websWrite(wp, "<script type=\"text/javascript\">");
-	if (nvram_match(akm, "disabled")) {
-		websWrite(wp, "Capture(share.disabled)");
-		websWrite(wp, "</script>");
-	} else {
+	if (nvram_match(akm, "psk"))
+		enc = "WPA Personal";
+	if (nvram_match(akm, "wpa"))
+		enc = "WPA Enterprise";
+	if (nvram_match(akm, "psk2"))
+		enc = "WPA2 Personal";
+	if (nvram_match(akm, "wpa2"))
+		enc = "WPA2 Enterprise";
+	if (nvram_match(akm, "psk psk2"))
+		enc = "WPA2 Personal Mixed";
+	if (nvram_match(akm, "wpa wpa2"))
+		enc = "WPA Enterprise Mixed";
+	if (nvram_match(akm, "radius"))
+		enc = "RADIUS";
+	if (nvram_match(akm, "wep"))
+		enc = "WEP";
+	if (nvram_match(akm, "8021X"))
+		enc = "802.1x";
+	if (enc) {
 		websWrite(wp, "Capture(share.enabled)");
 		websWrite(wp, "</script>,&nbsp;");
+		websWrite(wp, enc);
+	} else {
+		websWrite(wp, "Capture(share.disabled)");
+		websWrite(wp, "</script>");
 
-		if (nvram_match(akm, "psk"))
-			websWrite(wp, "WPA Personal");
-		if (nvram_match(akm, "wpa"))
-			websWrite(wp, "WPA Enterprise");
-		if (nvram_match(akm, "psk2"))
-			websWrite(wp, "WPA2 Personal");
-		if (nvram_match(akm, "wpa2"))
-			websWrite(wp, "WPA2 Enterprise");
-		if (nvram_match(akm, "psk psk2"))
-			websWrite(wp, "WPA2 Personal Mixed");
-		if (nvram_match(akm, "wpa wpa2"))
-			websWrite(wp, "WPA Enterprise Mixed");
-		if (nvram_match(akm, "radius"))
-			websWrite(wp, "RADIUS");
-		if (nvram_match(akm, "wep"))
-			websWrite(wp, "WEP");
-		if (nvram_match(akm, "8021X"))
-			websWrite(wp, "802.1x");
 	}
 
 	websWrite(wp, "\n</div>\n");
@@ -2595,7 +2656,9 @@ void ej_getencryptionstatus(webs_t wp, int argc, char_t ** argv)
 	char *mode = nvram_safe_get("wifi_display");
 
 	showencstatus(wp, mode);
-} void ej_getwirelessstatus(webs_t wp, int argc, char_t ** argv)
+}
+
+void ej_getwirelessstatus(webs_t wp, int argc, char_t ** argv)
 {
 	char var[32];
 	char m[32];

@@ -119,7 +119,7 @@ static int mtd_block_is_bad(int fd, int offset)
  * @param       flags   open() flags
  * @return      return value of open()
  */
-int mtd_open(const char *mtd, int flags)
+static int mtd_open(const char *mtd, int flags)
 {
 	FILE *fp;
 	char dev[PATH_MAX];
@@ -217,7 +217,7 @@ struct img_info {
 	uint32_t CRC;
 };
 
-struct code_header {
+struct code_header2 {
 	char magic[4];
 	char res1[4];		// for extra magic
 	char fwdate[3];
@@ -230,7 +230,7 @@ struct code_header {
 } __attribute__((packed));
 
 struct etrx_header {
-	struct code_header code;
+	struct code_header2 code;
 	struct trx_header trx;
 } __attribute__((packed));
 
@@ -267,17 +267,43 @@ int mtd_write(const char *path, const char *mtd)
 	 */
 	unsigned int trxhd = STORE32_LE(TRX_MAGIC);
 
-#if defined(HAVE_MVEBU)
-	char *part = getUEnv("boot_part");
-	if (part && !strcmp(part, "2"))
-		mtd = "linux2";
-#endif
-
+	char *part;
 	switch (brand) {
+#if defined(HAVE_MVEBU) || defined(HAVE_IPQ806X)
+	case ROUTER_WRT_1900AC:
+	case ROUTER_WRT_1200AC:
+	case ROUTER_WRT_1900ACV2:
+	case ROUTER_WRT_1900ACS:
+	case ROUTER_LINKSYS_EA8500:
+		part = getUEnv("boot_part");
+		if (part) {
+			fprintf(stderr, "boot partiton is %s\n", part);
+			if (!strcmp(part, "2")) {
+				mtd = "linux";
+				eval("ubootenv", "set", "boot_part", "1");
+			} else {
+				mtd = "linux2";
+				eval("ubootenv", "set", "boot_part", "2");
+			}
+			fprintf(stderr, "flash to partition %s\n", mtd);
+		} else {
+			fprintf(stderr, "no boot partition info found\n");
+		}
+		break;
+#endif
+	case ROUTER_TRENDNET_TEW827:
+		if (nvram_match("bootpartition", "0")) {
+			mtd = "linux2";
+			eval("startservice", "bootsecondary");
+		} else {
+			eval("startservice", "bootprimary");
+		}
+		break;
 	case ROUTER_BUFFALO_WZR900DHP:
 	case ROUTER_BUFFALO_WZR600DHP2:
 	case ROUTER_LINKSYS_EA6900:
 	case ROUTER_LINKSYS_EA6700:
+	case ROUTER_LINKSYS_EA6350:
 	case ROUTER_LINKSYS_EA6400:
 	case ROUTER_LINKSYS_EA6500V2:
 	case ROUTER_TRENDNET_TEW828:
@@ -418,6 +444,13 @@ int mtd_write(const char *path, const char *mtd)
 					return -1;
 				}
 				break;
+			case ROUTER_NETGEAR_R8500:
+				if (strncmp(board_id, "U12H334T00_NETGEAR", sizeof(board_id))) {
+					fprintf(stderr, "Error: board id %s expected %s\n", board_id, "U12H334T00_NETGEAR");
+					fclose(fp);
+					return -1;
+				}
+				break;
 			default:
 				fprintf(stderr, "Error: Flash to OEM for board %s not supported yet\n", board_id);
 				fclose(fp);
@@ -434,7 +467,7 @@ int mtd_write(const char *path, const char *mtd)
 #endif
 	// count = http_get (path, (char *) &trx, sizeof (struct trx_header), 0);
 	if (count < sizeof(struct trx_header)) {
-		fprintf(stderr, "%s: File is too small (%ld bytes)\n", path, count);
+		fprintf(stderr, "%s: File is too small (%d bytes)\n", path, count);
 		goto fail;
 	}
 	sysinfo(&info);
@@ -451,69 +484,9 @@ int mtd_write(const char *path, const char *mtd)
 	stop_service("freeradius");
 	killall("process_monitor", SIGTERM);
 #endif
-#ifdef HAVE_MAGICBOX
 	trx.magic = STORE32_LE(trx.magic);
 	trx.len = STORE32_LE(trx.len);
 	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_FONERA
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_SOLO51
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_MERAKI
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_LS2
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_LS5
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_WDR4900
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_WHRAG108
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_PB42
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_LSX
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-	// info.freeram = 64; //fix, must be flashed in erase blocks
-#elif HAVE_TW6600
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_CA8
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_DANUBE
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#elif HAVE_XSCALE
-	trx.magic = STORE32_LE(trx.magic);
-	trx.len = STORE32_LE(trx.len);
-	trx.crc32 = STORE32_LE(trx.crc32);
-#endif
 
 	if (trx.magic != TRX_MAGIC || trx.len < sizeof(struct trx_header)) {
 		fprintf(stderr, "%s: Bad trx header\n", path);
@@ -583,19 +556,7 @@ int mtd_write(const char *path, const char *mtd)
 #ifndef NETGEAR_CRC_FAKE
 	calculate_checksum(0, NULL, 0);	// init
 #endif
-#if defined(HAVE_MVEBU)		// erase all blocks first
-	for (erase_info.start = 0; erase_info.start < (mtd_info.size / mtd_info.erasesize); erase_info.start += mtd_info.erasesize) {
-		(void)ioctl(mtd_fd, MEMUNLOCK, &erase_info);
-		if (mtd_block_is_bad(mtd_fd, erase_info.start)) {
-			fprintf(stderr, "Skipping bad block at 0x%08zx\n", erase_info.start);
-			continue;
-		}
-		if (ioctl(mtd_fd, MEMERASE, &erase_info) != 0) {
-			perror(mtd);
-			goto fail;
-		}
-	}
-#endif
+	int first = 0;
 	/* 
 	 * Write file or URL to MTD device 
 	 */
@@ -619,16 +580,23 @@ int mtd_write(const char *path, const char *mtd)
 		// count +=
 		// http_get (path, &buf[off], len - off, erase_info.start + off);
 
+#if defined(HAVE_MVEBU) || defined(HAVE_IPQ806X) || defined(HAVE_VENTANA)	// erase all blocks first
+		if (!first) {
+			mtd_erase(mtd);
+			first = 1;
+		}
+#endif
+
 		/* 
 		 * for debug 
 		 */
 		sum = sum + count;
-		fprintf(stderr, "write=[%ld]         \n", sum);
+		fprintf(stderr, "write=[%d]         \n", sum);
 
 		if (((count < len)
 		     && (len - off) > (mtd_info.erasesize * mul))
 		    || (count == 0)) {
-			fprintf(stderr, "%s: Truncated file (actual %ld expect %ld)\n", path, count - off, len - off);
+			fprintf(stderr, "%s: Truncated file (actual %d expect %d)\n", path, count - off, len - off);
 			goto fail;
 		}
 		/* 
@@ -655,7 +623,7 @@ int mtd_write(const char *path, const char *mtd)
 		 * Check CRC before writing if possible 
 		 */
 #ifdef HAVE_WRT160NL
-		if (count == trx.len + sizeof(struct code_header)) {
+		if (count == trx.len + sizeof(struct code_header2)) {
 #else
 		if (count == trx.len) {
 #endif
@@ -675,7 +643,7 @@ int mtd_write(const char *path, const char *mtd)
 		for (i = 0; i < (length / mtd_info.erasesize); i++) {
 			int redo = 0;
 		      again:;
-			fprintf(stderr, "write block [%ld] at [0x%08X]        \r", i * mtd_info.erasesize, base + (i * mtd_info.erasesize));
+			fprintf(stderr, "write block [%d] at [0x%08X]        \r", i * mtd_info.erasesize, base + (i * mtd_info.erasesize));
 			erase_info.start = base + (i * mtd_info.erasesize);
 			(void)ioctl(mtd_fd, MEMUNLOCK, &erase_info);
 			if (mtd_block_is_bad(mtd_fd, erase_info.start)) {
@@ -685,7 +653,7 @@ int mtd_write(const char *path, const char *mtd)
 				badblocks += mtd_info.erasesize;
 				continue;
 			}
-#if !defined(HAVE_MVEBU)	// we do not need to erase again. it has been done before
+#if !defined(HAVE_MVEBU) && !defined(HAVE_IPQ806X)	// we do not need to erase again. it has been done before
 
 			if (ioctl(mtd_fd, MEMERASE, &erase_info) != 0) {
 				fprintf(stderr, "\nerase/write failed\n");
@@ -703,7 +671,7 @@ int mtd_write(const char *path, const char *mtd)
 
 	}
 
-	fprintf(stderr, "\ndone [%ld]\n", i * mtd_info.erasesize);
+	fprintf(stderr, "\ndone [%d]\n", i * mtd_info.erasesize);
 	/* 
 	 * Netgear: Write len and checksum at the end of mtd1 
 	 */
@@ -941,7 +909,7 @@ fail:
  * @param       mtd     path to or partition name of MTD device
  * @return      0 on success and errno on failure
  */
-int mtd_unlock(const char *mtd)
+static int mtd_unlock(const char *mtd)
 {
 	int mtd_fd;
 	struct mtd_info_user mtd_info;
